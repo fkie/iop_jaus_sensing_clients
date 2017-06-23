@@ -28,16 +28,16 @@ along with this program; or you can read the full license at
 #include "InternalEvents/InternalEventHandler.h"
 #include "Transport/JausTransport.h"
 #include "JTSStateMachine.h"
-#include "urn_jaus_jss_environmentSensing_RangeSensorClient_1_0/Messages/MessageSet.h"
-#include "urn_jaus_jss_environmentSensing_RangeSensorClient_1_0/InternalEvents/InternalEventsSet.h"
+#include "urn_jaus_jss_environmentSensing_RangeSensorClient/Messages/MessageSet.h"
+#include "urn_jaus_jss_environmentSensing_RangeSensorClient/InternalEvents/InternalEventsSet.h"
 
-typedef JTS::Receive_1_0 Receive;
-typedef JTS::Send_1_0 Send;
+typedef JTS::Receive Receive;
+typedef JTS::Send Send;
 
-#include "urn_jaus_jss_core_Transport_1_0/Transport_ReceiveFSM.h"
-#include "urn_jaus_jss_core_EventsClient_1_0/EventsClient_ReceiveFSM.h"
-#include "urn_jaus_jss_core_EventsClient_1_0/Messages/MessageSet.h"
-#include "urn_jaus_jss_core_AccessControlClient_1_0/AccessControlClient_ReceiveFSM.h"
+#include "urn_jaus_jss_core_Transport/Transport_ReceiveFSM.h"
+#include "urn_jaus_jss_core_EventsClient/EventsClient_ReceiveFSM.h"
+#include "urn_jaus_jss_core_EventsClient/Messages/MessageSet.h"
+#include "urn_jaus_jss_core_AccessControlClient/AccessControlClient_ReceiveFSM.h"
 
 
 #include "ros/ros.h"
@@ -46,17 +46,17 @@ typedef JTS::Send_1_0 Send;
 #include <geometry_msgs/TransformStamped.h>
 #include <vector>
 #include <boost/thread/recursive_mutex.hpp>
-#include <iop_ocu_control_layerlib_1_0_fkie/OcuControlLayerSlave.h>
+#include <iop_ocu_control_layerlib_fkie/OcuControlLayerSlave.h>
 
 #include "RangeSensorClient_ReceiveFSM_sm.h"
 
-namespace urn_jaus_jss_environmentSensing_RangeSensorClient_1_0
+namespace urn_jaus_jss_environmentSensing_RangeSensorClient
 {
 
 class DllExport RangeSensorClient_ReceiveFSM : public JTS::StateMachine
 {
 public:
-	RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Transport_1_0::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient_1_0::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient_1_0::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM);
+	RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM);
 	virtual ~RangeSensorClient_ReceiveFSM();
 
 	/// Handle notifications on parent state changes
@@ -80,11 +80,11 @@ public:
 protected:
 
     /// References to parent FSMs
-	urn_jaus_jss_core_Transport_1_0::Transport_ReceiveFSM* pTransport_ReceiveFSM;
-	urn_jaus_jss_core_EventsClient_1_0::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
-	urn_jaus_jss_core_AccessControlClient_1_0::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
+	urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM;
+	urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
+	urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
 
-	urn_jaus_jss_environmentSensing_RangeSensorClient_1_0::QueryRangeSensorData p_query_sensor_data;
+	urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorData p_query_sensor_data;
 
 	ros::NodeHandle p_pnh;
 	std::string p_tf_frame_robot;
@@ -97,7 +97,7 @@ protected:
 
 	OcuControlLayerSlave p_ocu_control_layer_slave;
 	void pAccessStateHandler(JausAddress &address, unsigned char code);
-	void pHandleeventReportRangeSensorDataAction(Receive::Body::ReceiveRec &transport_data, urn_jaus_jss_core_EventsClient_1_0::Event &msg);
+	void pHandleeventReportRangeSensorDataAction(JausAddress &sender, unsigned int reportlen, const unsigned char* reportdata);
 };
 
 };

@@ -5,9 +5,7 @@ project(iop_client_range_sensor_fkie)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-                iop_builder_fkie
-                iop_component_fkie
-                iop_ocu_control_layerlib_1_0_fkie
+                iop_ocu_control_layerlib_fkie
                 roscpp
                 sensor_msgs
                 tf2
@@ -32,9 +30,7 @@ catkin_package(
     INCLUDE_DIRS include/${PROJECT_NAME}
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS
-        iop_builder_fkie
-        iop_component_fkie
-        iop_ocu_control_layerlib_1_0_fkie
+        iop_ocu_control_layerlib_fkie
         sensor_msgs
         tf2
         tf2_ros
@@ -58,31 +54,29 @@ iop_code_generator(
     urn.jaus.jss.environmentSensing/RangeSensorClient.xml
   OWN_IDLS
   OVERRIDES
-    include/urn_jaus_jss_environmentSensing_RangeSensorClient_1_0/RangeSensorClient_ReceiveFSM.h
-    src/urn_jaus_jss_environmentSensing_RangeSensorClient_1_0/RangeSensorClient_ReceiveFSM.cpp
+    include/urn_jaus_jss_environmentSensing_RangeSensorClient/RangeSensorClient_ReceiveFSM.h
+    src/urn_jaus_jss_environmentSensing_RangeSensorClient/RangeSensorClient_ReceiveFSM.cpp
     src/main.cpp
   EXTERN_SERVICES
-    urn_jaus_jss_core_AccessControlClient_1_0
-    urn_jaus_jss_core_EventsClient_1_0
-    urn_jaus_jss_core_Transport_1_0
+    urn_jaus_jss_core_AccessControlClient
+    urn_jaus_jss_core_EventsClient
+    urn_jaus_jss_core_Transport
   GENERATED_SOURCES cppfiles
 )
 
 include_directories(${catkin_INCLUDE_DIRS}
-                    ${IOP_INCLUDE_DIRS}
                     include/${PROJECT_NAME}
 )
 
 ## Declare a cpp executable
 add_library(${PROJECT_NAME}
-            src/RangeSensorClientPlugin_1_0.cpp
+            src/RangeSensorClientPlugin.cpp
             ${cppfiles}
 )
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}
                       ${catkin_LIBRARIES}
-                      ${IOP_LIBRARIES}
 )
 
 install(

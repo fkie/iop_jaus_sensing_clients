@@ -21,18 +21,18 @@ along with this program; or you can read the full license at
 /** \author Alexander Tiderko */
 
 
-#include "urn_jaus_jss_environmentSensing_RangeSensorClient_1_0/RangeSensorClient_ReceiveFSM.h"
+#include "urn_jaus_jss_environmentSensing_RangeSensorClient/RangeSensorClient_ReceiveFSM.h"
 #include <iop_builder_fkie/timestamp.h>
 
 
 using namespace JTS;
 
-namespace urn_jaus_jss_environmentSensing_RangeSensorClient_1_0
+namespace urn_jaus_jss_environmentSensing_RangeSensorClient
 {
 
 
 
-RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Transport_1_0::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient_1_0::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient_1_0::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM)
+RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM)
 {
 
 	/*
@@ -71,7 +71,7 @@ void RangeSensorClient_ReceiveFSM::setupNotifications()
 void RangeSensorClient_ReceiveFSM::pAccessStateHandler(JausAddress &address, unsigned char code)
 {
 	if (code == OcuControlSlave::ACCESS_STATE_CONTROL_ACCEPTED) {
-		urn_jaus_jss_environmentSensing_RangeSensorClient_1_0::QueryRangeSensorConfiguration query;
+		urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorConfiguration query;
 		sendJausMessage(query, address);
 	} else if (code == OcuControlSlave::ACCESS_CONTROL_RELEASE) {
 		pEventsClient_ReceiveFSM->cancel_event(address, p_query_sensor_data);
@@ -80,10 +80,14 @@ void RangeSensorClient_ReceiveFSM::pAccessStateHandler(JausAddress &address, uns
 	}
 }
 
-void RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction(Receive::Body::ReceiveRec &transport_data, urn_jaus_jss_core_EventsClient_1_0::Event &msg)
+void RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction(JausAddress &sender, unsigned int reportlen, const unsigned char* reportdata)
 {
 	ReportRangeSensorData report;
-	report.decode(msg.getBody()->getEventRec()->getReportMessage()->getData());
+	report.decode(reportdata);
+	Receive::Body::ReceiveRec transport_data;
+	transport_data.setSrcSubsystemID(sender.getSubsystemID());
+	transport_data.setSrcNodeID(sender.getNodeID());
+	transport_data.setSrcComponentID(sender.getComponentID());
 	handleReportRangeSensorDataAction(report, transport_data);
 }
 
@@ -136,9 +140,9 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorConfigurationAction(Re
 	ROS_DEBUG_NAMED("RangeSensorClient", "ReportRangeSensorConfiguration, count sensors: %d", msg.getBody()->getRangeSensorConfigurationList()->getNumberOfElements());
 	ROS_INFO_NAMED("RangeSensorClient", "request GeometricProperties and SensorCapabilities from %d.%d.%d",
 				   sender.getSubsystemID(), sender.getNodeID(), sender.getComponentID());
-	urn_jaus_jss_environmentSensing_RangeSensorClient_1_0::QuerySensorGeometricProperties query_geo;
+	urn_jaus_jss_environmentSensing_RangeSensorClient::QuerySensorGeometricProperties query_geo;
 	this->sendJausMessage(query_geo, sender);
-	urn_jaus_jss_environmentSensing_RangeSensorClient_1_0::QueryRangeSensorCapabilities query_cap;
+	urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorCapabilities query_cap;
 	this->sendJausMessage(query_cap, sender);
 }
 
