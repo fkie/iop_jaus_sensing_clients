@@ -5,7 +5,7 @@ project(iop_client_range_sensor_fkie)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-                iop_ocu_control_layerlib_fkie
+                iop_ocu_slavelib_fkie
                 roscpp
                 sensor_msgs
                 tf2
@@ -30,7 +30,7 @@ catkin_package(
     INCLUDE_DIRS include/${PROJECT_NAME}
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS
-        iop_ocu_control_layerlib_fkie
+        iop_ocu_slavelib_fkie
         sensor_msgs
         tf2
         tf2_ros

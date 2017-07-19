@@ -23,9 +23,11 @@ along with this program; or you can read the full license at
 
 #include "urn_jaus_jss_environmentSensing_RangeSensorClient/RangeSensorClient_ReceiveFSM.h"
 #include <iop_builder_fkie/timestamp.h>
+#include <iop_ocu_slavelib_fkie/Slave.h>
 
 
 using namespace JTS;
+using namespace iop::ocu;
 
 namespace urn_jaus_jss_environmentSensing_RangeSensorClient
 {
@@ -64,20 +66,36 @@ void RangeSensorClient_ReceiveFSM::setupNotifications()
 	p_tf_frame_robot = "base_link";
 	p_pnh.param("tf_frame_robot", p_tf_frame_robot, p_tf_frame_robot);
 	ROS_INFO("tf_frame_robot: %s", p_tf_frame_robot.c_str());
-	p_ocu_control_layer_slave.set_access_state_handler(&RangeSensorClient_ReceiveFSM::pAccessStateHandler, this);
-	p_ocu_control_layer_slave.init(*(jausRouter->getJausAddress()), "urn:jaus:jss:environmentSensing:RangeSensor", 1, 0);
+	Slave &slave = Slave::get_instance(*(jausRouter->getJausAddress()));
+	slave.add_supported_service(*this, "urn:jaus:jss:environmentSensing:RangeSensor", 1, 0);
 }
 
-void RangeSensorClient_ReceiveFSM::pAccessStateHandler(JausAddress &address, unsigned char code)
+void RangeSensorClient_ReceiveFSM::control_allowed(std::string service_uri, JausAddress component, unsigned char authority)
 {
-	if (code == OcuControlSlave::ACCESS_STATE_CONTROL_ACCEPTED) {
+	if (service_uri.compare("urn:jaus:jss:environmentSensing:RangeSensor") == 0) {
+		p_control_addr = component;
 		urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorConfiguration query;
-		sendJausMessage(query, address);
-	} else if (code == OcuControlSlave::ACCESS_CONTROL_RELEASE) {
-		pEventsClient_ReceiveFSM->cancel_event(address, p_query_sensor_data);
-		ROS_INFO_NAMED("RangeSensorClient", "cancel event for range sensor data by %d.%d.%d",
-				address.getSubsystemID(), address.getNodeID(), address.getComponentID());
+		sendJausMessage(query, component);
+	} else {
+		ROS_WARN_STREAM("[RangeSensorClient] unexpected control allowed for " << service_uri << " received, ignored!");
 	}
+}
+
+void RangeSensorClient_ReceiveFSM::enable_monitoring_only(std::string service_uri, JausAddress component)
+{
+	urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorConfiguration query;
+	sendJausMessage(query, component);
+//	ROS_INFO_NAMED("RangeSensorClient", "create event to get range data from %d.%d.%d",
+//			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
+//	pEventsClient_ReceiveFSM->create_event(&RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction, this, component, p_query_sensor_data, 5.0, 1);
+}
+
+void RangeSensorClient_ReceiveFSM::access_deactivated(std::string service_uri, JausAddress component)
+{
+	p_control_addr = JausAddress(0);
+	ROS_INFO_NAMED("RangeSensorClient", "cancel event for range sensor data by %d.%d.%d",
+			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
+	pEventsClient_ReceiveFSM->cancel_event(component, p_query_sensor_data);
 }
 
 void RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction(JausAddress &sender, unsigned int reportlen, const unsigned char* reportdata)
