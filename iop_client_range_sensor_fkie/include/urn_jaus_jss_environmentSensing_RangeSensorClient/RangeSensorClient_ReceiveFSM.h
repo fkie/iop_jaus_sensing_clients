@@ -89,6 +89,7 @@ protected:
 
 	urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorData p_query_sensor_data;
 
+	ros::NodeHandle p_nh;
 	ros::NodeHandle p_pnh;
 	std::string p_tf_frame_robot;
 	tf2_ros::TransformBroadcaster p_tf_broadcaster;

@@ -47,7 +47,6 @@ RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Tra
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
-	p_pnh = ros::NodeHandle("~");
 }
 
 
@@ -63,6 +62,7 @@ void RangeSensorClient_ReceiveFSM::setupNotifications()
 	pAccessControlClient_ReceiveFSM->registerNotification("Receiving", ieHandler, "InternalStateChange_To_RangeSensorClient_ReceiveFSM_Receiving_Ready", "AccessControlClient_ReceiveFSM");
 	registerNotification("Receiving_Ready", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving_Ready", "RangeSensorClient_ReceiveFSM");
 	registerNotification("Receiving", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving", "RangeSensorClient_ReceiveFSM");
+	p_pnh = ros::NodeHandle("~");
 	p_tf_frame_robot = "base_link";
 	p_pnh.param("tf_frame_robot", p_tf_frame_robot, p_tf_frame_robot);
 	ROS_INFO("tf_frame_robot: %s", p_tf_frame_robot.c_str());
@@ -128,7 +128,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 		ReportRangeSensorCapabilities::Body::RangeSensorCapabilitiesList::RangeSensorCapabilitiesRec *item = msg.getBody()->getRangeSensorCapabilitiesList()->getElement(i);
 		unsigned int id = item->getSensorID();
 		if (p_publisher_map.find(id) == p_publisher_map.end()) {
-			p_publisher_map[id] = p_pnh.advertise<sensor_msgs::LaserScan>(item->getSensorName(), 1, false);
+			p_publisher_map[id] = p_nh.advertise<sensor_msgs::LaserScan>(item->getSensorName(), 1, false);
 			p_sensor_names[id] = ros::this_node::getNamespace().substr(1) + item->getSensorName();
 			p_sensor_max_range[id] = item->getMaximumRange();
 			p_sensor_min_range[id] = item->getMinimumRange();
