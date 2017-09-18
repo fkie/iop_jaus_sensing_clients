@@ -87,7 +87,11 @@ protected:
 	urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
 	urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
 
-	urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorData p_query_sensor_data;
+	QueryRangeSensorConfiguration p_query_cfg;
+	QueryRangeSensorData p_query_sensor_data;
+	QuerySensorGeometricProperties p_query_geo;
+	QueryRangeSensorCapabilities p_query_cap;
+
 
 	ros::NodeHandle p_nh;
 	ros::NodeHandle p_pnh;

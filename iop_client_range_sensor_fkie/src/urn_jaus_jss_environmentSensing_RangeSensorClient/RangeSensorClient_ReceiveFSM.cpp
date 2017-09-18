@@ -47,6 +47,24 @@ RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Tra
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
+	QueryRangeSensorData::Body::QueryRangeSensorDataList::QueryRangeSensorDataRec drec;
+	drec.setSensorID(0); // 0 is specified to get all sensors
+	drec.setReportCoordinateSystem(1); // we use vehicle coordinate system
+	p_query_sensor_data.getBody()->getQueryRangeSensorDataList()->addElement(drec);
+
+	QueryRangeSensorConfiguration::Body::RangeSensorConfigurationList::QueryRangeSensorConfigurationRec crec;
+	crec.setSensorID(0); // 0 is specified to get all sensors
+	crec.setQueryPresenceVector(65535);
+	p_query_cfg.getBody()->getRangeSensorConfigurationList()->addElement(crec);
+
+	QuerySensorGeometricProperties::Body::SensorIdList::SensorIdRec sgrec;
+	sgrec.setSensorID(0); // 0 is specified to get all sensors
+	p_query_geo.getBody()->getSensorIdList()->addElement(sgrec);
+	QueryRangeSensorCapabilities::Body::RangeSensorCapabilitiesList::QueryRangeSensorCapabilitiesRec rscrec;
+	rscrec.setSensorID(0); // 0 is specified to get all sensors
+	// miss the possibility to set the presence vector
+	// rscrec.m_QueryPresenceVector = 65535;
+	p_query_cap.getBody()->getRangeSensorCapabilitiesList()->addElement(rscrec);
 }
 
 
@@ -74,8 +92,7 @@ void RangeSensorClient_ReceiveFSM::control_allowed(std::string service_uri, Jaus
 {
 	if (service_uri.compare("urn:jaus:jss:environmentSensing:RangeSensor") == 0) {
 		p_control_addr = component;
-		urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorConfiguration query;
-		sendJausMessage(query, component);
+		sendJausMessage(p_query_cfg, component);
 	} else {
 		ROS_WARN_STREAM("[RangeSensorClient] unexpected control allowed for " << service_uri << " received, ignored!");
 	}
@@ -83,8 +100,7 @@ void RangeSensorClient_ReceiveFSM::control_allowed(std::string service_uri, Jaus
 
 void RangeSensorClient_ReceiveFSM::enable_monitoring_only(std::string service_uri, JausAddress component)
 {
-	urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorConfiguration query;
-	sendJausMessage(query, component);
+	sendJausMessage(p_query_cfg, component);
 //	ROS_INFO_NAMED("RangeSensorClient", "create event to get range data from %d.%d.%d",
 //			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
 //	pEventsClient_ReceiveFSM->create_event(&RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction, this, component, p_query_sensor_data, 5.0, 1);
