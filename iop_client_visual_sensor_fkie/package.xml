@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package>
+  <name>iop_client_visual_sensor_fkie</name>
+  <version>1.1.0</version>
+  <description>The client service for visual sensor service </description>
+
+  <maintainer email="alexander.tiderko@fkie.fraunhofer.de">Alexander Tiderko</maintainer>
+  <license>GPLv2</license>
+  <url type="website">https://github.com/fkie/iop_jaus_sensing_clients</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>iop_ocu_slavelib_fkie</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <run_depend>iop_component_fkie</run_depend>
+  <run_depend>iop_ocu_slavelib_fkie</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>std_msgs</run_depend>
+
+  <export>
+    <iop_component_fkie plugin="${prefix}/plugin_iop.xml" />
+  </export>
+
+</package>
