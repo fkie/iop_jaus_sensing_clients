@@ -224,7 +224,11 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 						rosmsg.angle_max = point->getBearing();
 					}
 					double range = NAN;
-					if (point->isRangeValidityValid() && point->getRangeValidity() == 1) {
+					if (point->isRangeValidityValid()) {
+						if (point->getRangeValidity() == 1) {
+							range = point->getRange();
+						}
+					} else {
 						range = point->getRange();
 					}
 					rosmsg.ranges.push_back(range);
