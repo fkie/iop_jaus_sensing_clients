@@ -51,6 +51,7 @@ DigitalVideoClient_ReceiveFSM::DigitalVideoClient_ReceiveFSM(urn_jaus_jss_core_T
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
 	p_pnh = ros::NodeHandle("~");
 	p_current_resource_id = 65535;
+	p_has_access = false;
 }
 
 
@@ -75,7 +76,8 @@ void DigitalVideoClient_ReceiveFSM::setupNotifications()
 void DigitalVideoClient_ReceiveFSM::control_allowed(std::string service_uri, JausAddress component, unsigned char authority)
 {
 	if (service_uri.compare("urn:jaus:jss:environmentSensing:DigitalVideo") == 0) {
-		p_control_addr = component;
+		p_has_access = true;
+		p_remote_addr = component;
 		ROS_INFO_NAMED("DigitalVideoClient_ReceiveFSM", "access granted for %d.%d.%d",
 				component.getSubsystemID(), component.getNodeID(), component.getComponentID());
 	} else {
@@ -91,10 +93,20 @@ void DigitalVideoClient_ReceiveFSM::enable_monitoring_only(std::string service_u
 
 void DigitalVideoClient_ReceiveFSM::access_deactivated(std::string service_uri, JausAddress component)
 {
-	p_control_addr = JausAddress(0);
+	p_has_access = false;
+	p_remote_addr = JausAddress(0);
 	ROS_INFO_NAMED("DigitalVideoClient_ReceiveFSM", "access released for %d.%d.%d",
 			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
 }
+
+void DigitalVideoClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
+{
+}
+
+void DigitalVideoClient_ReceiveFSM::cancel_events(std::string service_uri, JausAddress component, bool by_query)
+{
+}
+
 
 void DigitalVideoClient_ReceiveFSM::handleReportDigitalVideoSensorCapabilitiesAction(ReportDigitalVideoSensorCapabilities msg, Receive::Body::ReceiveRec transportData)
 {
@@ -110,21 +122,21 @@ void DigitalVideoClient_ReceiveFSM::handleReportDigitalVideoSensorConfigurationA
 
 void DigitalVideoClient_ReceiveFSM::p_dandle_current_ressource_id(const std_msgs::UInt16::ConstPtr msg)
 {
-	if (p_control_addr.get() != 0) {
+	if (p_remote_addr.get() != 0) {
 		if (msg->data == 65535 and p_current_resource_id != 65535) {
 			ControlDigitalVideoSensorStream cmd;
 			ROS_INFO_NAMED("DigitalVideoClient_ReceiveFSM", "forward STOP for resource id %d to %d.%d.%d",
-					p_current_resource_id, p_control_addr.getSubsystemID(), p_control_addr.getNodeID(), p_control_addr.getComponentID());
+					p_current_resource_id, p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
 			cmd.getBody()->getControlDigitalVideoSensorStreamRec()->setSensorID(p_current_resource_id);
 			cmd.getBody()->getControlDigitalVideoSensorStreamRec()->setStreamState(2);
-			sendJausMessage(cmd, p_control_addr);
+			sendJausMessage(cmd, p_remote_addr);
 		} else {
 			ControlDigitalVideoSensorStream cmd;
 			ROS_INFO_NAMED("DigitalVideoClient_ReceiveFSM", "forward PLAY for resource id %d to %d.%d.%d",
-					msg->data, p_control_addr.getSubsystemID(), p_control_addr.getNodeID(), p_control_addr.getComponentID());
+					msg->data, p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
 			cmd.getBody()->getControlDigitalVideoSensorStreamRec()->setSensorID(msg->data);
 			cmd.getBody()->getControlDigitalVideoSensorStreamRec()->setStreamState(0);
-			sendJausMessage(cmd, p_control_addr);
+			sendJausMessage(cmd, p_remote_addr);
 		}
 	}
 	p_current_resource_id = msg->data;

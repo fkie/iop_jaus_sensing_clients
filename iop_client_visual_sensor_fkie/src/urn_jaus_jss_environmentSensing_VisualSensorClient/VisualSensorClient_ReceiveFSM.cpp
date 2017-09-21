@@ -29,6 +29,7 @@ VisualSensorClient_ReceiveFSM::VisualSensorClient_ReceiveFSM(urn_jaus_jss_core_T
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
+	p_has_access = false;
 	p_pnh = ros::NodeHandle("~");
 	QueryVisualSensorCapabilities::Body::QueryVisualSensorCapabilitiesList::QueryVisualSensorCapabilitiesRec qc_rec;
 	qc_rec.setSensorID(65535);  // request capabilities for all available sensors
@@ -57,10 +58,8 @@ void VisualSensorClient_ReceiveFSM::setupNotifications()
 void VisualSensorClient_ReceiveFSM::control_allowed(std::string service_uri, JausAddress component, unsigned char authority)
 {
 	if (service_uri.compare("urn:jaus:jss:environmentSensing:VisualSensor") == 0) {
-		p_control_addr = component;
-		ROS_INFO_NAMED("VisualSensorClient_ReceiveFSM", "access granted for %d.%d.%d",
-				component.getSubsystemID(), component.getNodeID(), component.getComponentID());
-		sendJausMessage(p_query_caps, p_control_addr);
+		p_remote_addr = component;
+		p_has_access = true;
 	} else {
 		ROS_WARN_STREAM("[VisualSensorClient_ReceiveFSM] unexpected control allowed for " << service_uri << " received, ignored!");
 	}
@@ -68,19 +67,38 @@ void VisualSensorClient_ReceiveFSM::control_allowed(std::string service_uri, Jau
 
 void VisualSensorClient_ReceiveFSM::enable_monitoring_only(std::string service_uri, JausAddress component)
 {
-	ROS_INFO_NAMED("VisualSensorClient_ReceiveFSM", "monitor enabled for %d.%d.%d",
-			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
-	sendJausMessage(p_query_caps, component);
+	p_remote_addr = component;
 }
 
 void VisualSensorClient_ReceiveFSM::access_deactivated(std::string service_uri, JausAddress component)
 {
-	p_control_addr = JausAddress(0);
-	ROS_INFO_NAMED("VisualSensorClient_ReceiveFSM", "access released for %d.%d.%d",
-			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
+	p_has_access = false;
+	p_remote_addr = JausAddress(0);
 	// send an empty message on release control or monitoring
 	iop_msgs_fkie::VisualSensorNames ros_msg;
 	p_pub_visual_sensor_names.publish(ros_msg);
+}
+
+void VisualSensorClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
+{
+	ROS_INFO_NAMED("GlobalPoseSensorClient", "create QUERY timer to update names for visual sensors from %d.%d.%d",
+			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
+	p_query_timer = p_nh.createTimer(ros::Duration(3), &VisualSensorClient_ReceiveFSM::pQueryCallback, this);
+	sendJausMessage(p_query_caps, p_remote_addr);
+}
+
+void VisualSensorClient_ReceiveFSM::cancel_events(std::string service_uri, JausAddress component, bool by_query)
+{
+	p_query_timer.stop();
+}
+
+void VisualSensorClient_ReceiveFSM::pQueryCallback(const ros::TimerEvent& event)
+{
+	if (p_remote_addr.get() != 0) {
+		ROS_INFO_NAMED("DigitalResourceClient", "... update names for visual sensors from %d.%d.%d",
+				p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
+		sendJausMessage(p_query_caps, p_remote_addr);
+	}
 }
 
 void VisualSensorClient_ReceiveFSM::handleConfirmSensorConfigurationAction(ConfirmSensorConfiguration msg, Receive::Body::ReceiveRec transportData)
@@ -96,6 +114,7 @@ void VisualSensorClient_ReceiveFSM::handleReportSensorGeometricPropertiesAction(
 void VisualSensorClient_ReceiveFSM::handleReportVisualSensorCapabilitiesAction(ReportVisualSensorCapabilities msg, Receive::Body::ReceiveRec transportData)
 {
 	/// Insert User Code HERE
+	p_query_timer.stop();
 	iop_msgs_fkie::VisualSensorNames ros_msg;
 	ReportVisualSensorCapabilities::Body::VisualSensorCapabilitiesList *caplist = msg.getBody()->getVisualSensorCapabilitiesList();
 	for (unsigned int i = 0; i < caplist->getNumberOfElements(); i++) {

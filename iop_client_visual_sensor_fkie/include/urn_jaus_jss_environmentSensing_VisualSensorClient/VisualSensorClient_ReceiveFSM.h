@@ -48,6 +48,8 @@ public:
 	void control_allowed(std::string service_uri, JausAddress component, unsigned char authority);
 	void enable_monitoring_only(std::string service_uri, JausAddress component);
 	void access_deactivated(std::string service_uri, JausAddress component);
+	void create_events(std::string service_uri, JausAddress component, bool by_query=false);
+	void cancel_events(std::string service_uri, JausAddress component, bool by_query=false);
 	/// Guard Methods
 
 
@@ -61,11 +63,15 @@ protected:
 	urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
 	urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
 
-	JausAddress p_control_addr;
+	JausAddress p_remote_addr;
+	bool p_has_access;
 	ros::NodeHandle p_nh;
 	ros::NodeHandle p_pnh;
+	ros::Timer p_query_timer;
 	ros::Publisher p_pub_visual_sensor_names;
 	QueryVisualSensorCapabilities p_query_caps;
+
+	void pQueryCallback(const ros::TimerEvent& event);
 
 };
 

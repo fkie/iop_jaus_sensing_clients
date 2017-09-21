@@ -47,6 +47,9 @@ RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Tra
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
+	p_has_access = false;
+	p_query_state = 0;
+	p_by_query = false;
 	QueryRangeSensorData::Body::QueryRangeSensorDataList::QueryRangeSensorDataRec drec;
 	drec.setSensorID(0); // 0 is specified to get all sensors
 	drec.setReportCoordinateSystem(1); // we use vehicle coordinate system
@@ -91,8 +94,8 @@ void RangeSensorClient_ReceiveFSM::setupNotifications()
 void RangeSensorClient_ReceiveFSM::control_allowed(std::string service_uri, JausAddress component, unsigned char authority)
 {
 	if (service_uri.compare("urn:jaus:jss:environmentSensing:RangeSensor") == 0) {
-		p_control_addr = component;
-		sendJausMessage(p_query_cfg, component);
+		p_remote_addr = component;
+		p_has_access = true;
 	} else {
 		ROS_WARN_STREAM("[RangeSensorClient] unexpected control allowed for " << service_uri << " received, ignored!");
 	}
@@ -100,18 +103,45 @@ void RangeSensorClient_ReceiveFSM::control_allowed(std::string service_uri, Jaus
 
 void RangeSensorClient_ReceiveFSM::enable_monitoring_only(std::string service_uri, JausAddress component)
 {
-	sendJausMessage(p_query_cfg, component);
-//	ROS_INFO_NAMED("RangeSensorClient", "create event to get range data from %d.%d.%d",
-//			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
-//	pEventsClient_ReceiveFSM->create_event(&RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction, this, component, p_query_sensor_data, 5.0, 1);
+	p_remote_addr = component;
 }
 
 void RangeSensorClient_ReceiveFSM::access_deactivated(std::string service_uri, JausAddress component)
 {
-	p_control_addr = JausAddress(0);
-	ROS_INFO_NAMED("RangeSensorClient", "cancel event for range sensor data by %d.%d.%d",
-			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
-	pEventsClient_ReceiveFSM->cancel_event(component, p_query_sensor_data);
+	p_has_access = false;
+	p_remote_addr = JausAddress(0);
+}
+
+void RangeSensorClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
+{
+	p_by_query = by_query;
+	sendJausMessage(p_query_cfg, component);
+	p_query_timer = p_nh.createTimer(ros::Duration(5), &RangeSensorClient_ReceiveFSM::pQueryCallback, this);
+}
+
+void RangeSensorClient_ReceiveFSM::cancel_events(std::string service_uri, JausAddress component, bool by_query)
+{
+	p_query_timer.stop();
+	if (!by_query) {
+		ROS_INFO_NAMED("RangeSensorClient", "cancel EVENT for range sensor data by %d.%d.%d",
+				component.getSubsystemID(), component.getNodeID(), component.getComponentID());
+		pEventsClient_ReceiveFSM->cancel_event(component, p_query_sensor_data);
+	}
+	p_query_state = 0;
+}
+
+void RangeSensorClient_ReceiveFSM::pQueryCallback(const ros::TimerEvent& event)
+{
+	if (p_remote_addr.get() != 0) {
+		if (p_query_state == 0) {
+			sendJausMessage(p_query_cfg, p_remote_addr);
+		} else if (p_query_state == 1) {
+			sendJausMessage(p_query_geo, p_remote_addr);
+			sendJausMessage(p_query_cap, p_remote_addr);
+		} else {
+			sendJausMessage(p_query_sensor_data, p_remote_addr);
+		}
+	}
 }
 
 void RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction(JausAddress &sender, unsigned int reportlen, const unsigned char* reportdata)
@@ -154,9 +184,20 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 			}
 		}
 	}
-	ROS_INFO_NAMED("RangeSensorClient", "create event to get range data from %d.%d.%d",
-			sender.getSubsystemID(), sender.getNodeID(), sender.getComponentID());
-	pEventsClient_ReceiveFSM->create_event(&RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction, this, sender, p_query_sensor_data, 5.0, 1);
+	p_query_state = 2;
+	// create event or timer for queries
+	if (p_remote_addr.get() != 0) {
+		if (p_by_query) {
+			p_query_timer.stop();
+			ROS_INFO_NAMED("RangeSensorClient", "create QUERY timer to get range data from %d.%d.%d",
+					p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
+			p_query_timer = p_nh.createTimer(ros::Duration(0.2), &RangeSensorClient_ReceiveFSM::pQueryCallback, this);
+		} else {
+			ROS_INFO_NAMED("RangeSensorClient", "create EVENT to get range data from %d.%d.%d",
+					p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
+			pEventsClient_ReceiveFSM->create_event(&RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction, this, p_remote_addr, p_query_sensor_data, 5.0, 0);
+		}
+	}
 }
 
 void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCompressedDataAction(ReportRangeSensorCompressedData msg, Receive::Body::ReceiveRec transportData)
@@ -174,10 +215,9 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorConfigurationAction(Re
 	ROS_DEBUG_NAMED("RangeSensorClient", "ReportRangeSensorConfiguration, count sensors: %d", msg.getBody()->getRangeSensorConfigurationList()->getNumberOfElements());
 	ROS_INFO_NAMED("RangeSensorClient", "request GeometricProperties and SensorCapabilities from %d.%d.%d",
 				   sender.getSubsystemID(), sender.getNodeID(), sender.getComponentID());
-	urn_jaus_jss_environmentSensing_RangeSensorClient::QuerySensorGeometricProperties query_geo;
-	this->sendJausMessage(query_geo, sender);
-	urn_jaus_jss_environmentSensing_RangeSensorClient::QueryRangeSensorCapabilities query_cap;
-	this->sendJausMessage(query_cap, sender);
+	p_query_state = 1;
+	sendJausMessage(p_query_geo, sender);
+	sendJausMessage(p_query_cap, sender);
 }
 
 void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRangeSensorData msg, Receive::Body::ReceiveRec transportData)
