@@ -2,6 +2,7 @@
 #include <iop_msgs_fkie/VisualSensorNames.h>
 
 #include <iop_ocu_slavelib_fkie/Slave.h>
+#include <iop_component_fkie/iop_config.h>
 
 #include "urn_jaus_jss_environmentSensing_VisualSensorClient/VisualSensorClient_ReceiveFSM.h"
 
@@ -30,7 +31,6 @@ VisualSensorClient_ReceiveFSM::VisualSensorClient_ReceiveFSM(urn_jaus_jss_core_T
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
 	p_has_access = false;
-	p_pnh = ros::NodeHandle("~");
 	QueryVisualSensorCapabilities::Body::QueryVisualSensorCapabilitiesList::QueryVisualSensorCapabilitiesRec qc_rec;
 	qc_rec.setSensorID(65535);  // request capabilities for all available sensors
 	p_query_caps.getBody()->getQueryVisualSensorCapabilitiesList()->addElement(qc_rec);
@@ -49,8 +49,8 @@ void VisualSensorClient_ReceiveFSM::setupNotifications()
 	pAccessControlClient_ReceiveFSM->registerNotification("Receiving", ieHandler, "InternalStateChange_To_VisualSensorClient_ReceiveFSM_Receiving_Ready", "AccessControlClient_ReceiveFSM");
 	registerNotification("Receiving_Ready", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving_Ready", "VisualSensorClient_ReceiveFSM");
 	registerNotification("Receiving", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving", "VisualSensorClient_ReceiveFSM");
-
-	p_pub_visual_sensor_names = p_nh.advertise<iop_msgs_fkie::VisualSensorNames>("visual_sensor_names", 10, true);
+	iop::Config cfg("~VisualSensorClient");
+	p_pub_visual_sensor_names = cfg.advertise<iop_msgs_fkie::VisualSensorNames>("visual_sensor_names", 10, true);
 	ocu::Slave &slave = ocu::Slave::get_instance(*(jausRouter->getJausAddress()));
 	slave.add_supported_service(*this, "urn:jaus:jss:environmentSensing:VisualSensor", 1, 0);
 }

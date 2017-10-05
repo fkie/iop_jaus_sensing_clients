@@ -65,8 +65,6 @@ protected:
 
 	JausAddress p_remote_addr;
 	bool p_has_access;
-	ros::NodeHandle p_nh;
-	ros::NodeHandle p_pnh;
 	ros::Timer p_query_timer;
 	ros::Publisher p_pub_visual_sensor_names;
 	QueryVisualSensorCapabilities p_query_caps;

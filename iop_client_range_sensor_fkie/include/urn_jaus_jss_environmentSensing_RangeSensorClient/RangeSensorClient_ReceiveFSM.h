@@ -47,13 +47,14 @@ along with this program; or you can read the full license at
 #include <vector>
 #include <boost/thread/recursive_mutex.hpp>
 #include <iop_ocu_slavelib_fkie/SlaveHandlerInterface.h>
+#include <iop_events_fkie/EventHandlerInterface.h>
 
 #include "RangeSensorClient_ReceiveFSM_sm.h"
 
 namespace urn_jaus_jss_environmentSensing_RangeSensorClient
 {
 
-class DllExport RangeSensorClient_ReceiveFSM : public JTS::StateMachine, public iop::ocu::SlaveHandlerInterface
+class DllExport RangeSensorClient_ReceiveFSM : public JTS::StateMachine, public iop::ocu::SlaveHandlerInterface, public iop::EventHandlerInterface
 {
 public:
 	RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM);
@@ -72,6 +73,8 @@ public:
 
 
 	/// Guard Methods
+	/// EventHandlerInterface Methods
+	void event(JausAddress reporter, unsigned short query_msg_id, unsigned int reportlen, const unsigned char* reportdata);
 
 	/// SlaveHandlerInterface Methods
 	void control_allowed(std::string service_uri, JausAddress component, unsigned char authority);
@@ -96,7 +99,6 @@ protected:
 
 
 	ros::NodeHandle p_nh;
-	ros::NodeHandle p_pnh;
 	ros::Timer p_query_timer;
 	std::string p_tf_frame_robot;
 	tf2_ros::TransformBroadcaster p_tf_broadcaster;
@@ -110,7 +112,6 @@ protected:
 
 	JausAddress p_remote_addr;
 	bool p_has_access;
-	void pHandleeventReportRangeSensorDataAction(JausAddress &sender, unsigned int reportlen, const unsigned char* reportdata);
 	void pQueryCallback(const ros::TimerEvent& event);
 };
 

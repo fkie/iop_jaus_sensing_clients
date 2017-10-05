@@ -24,6 +24,7 @@ along with this program; or you can read the full license at
 #include "urn_jaus_jss_environmentSensing_RangeSensorClient/RangeSensorClient_ReceiveFSM.h"
 #include <iop_builder_fkie/timestamp.h>
 #include <iop_ocu_slavelib_fkie/Slave.h>
+#include <iop_component_fkie/iop_config.h>
 
 
 using namespace JTS;
@@ -83,10 +84,8 @@ void RangeSensorClient_ReceiveFSM::setupNotifications()
 	pAccessControlClient_ReceiveFSM->registerNotification("Receiving", ieHandler, "InternalStateChange_To_RangeSensorClient_ReceiveFSM_Receiving_Ready", "AccessControlClient_ReceiveFSM");
 	registerNotification("Receiving_Ready", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving_Ready", "RangeSensorClient_ReceiveFSM");
 	registerNotification("Receiving", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving", "RangeSensorClient_ReceiveFSM");
-	p_pnh = ros::NodeHandle("~");
-	p_tf_frame_robot = "base_link";
-	p_pnh.param("tf_frame_robot", p_tf_frame_robot, p_tf_frame_robot);
-	ROS_INFO("tf_frame_robot: %s", p_tf_frame_robot.c_str());
+	iop::Config cfg("~RangeSensorClient");
+	cfg.param("tf_frame_robot", p_tf_frame_robot, std::string("base_link"));
 	Slave &slave = Slave::get_instance(*(jausRouter->getJausAddress()));
 	slave.add_supported_service(*this, "urn:jaus:jss:environmentSensing:RangeSensor", 1, 0);
 }
@@ -125,7 +124,7 @@ void RangeSensorClient_ReceiveFSM::cancel_events(std::string service_uri, JausAd
 	if (!by_query) {
 		ROS_INFO_NAMED("RangeSensorClient", "cancel EVENT for range sensor data by %d.%d.%d",
 				component.getSubsystemID(), component.getNodeID(), component.getComponentID());
-		pEventsClient_ReceiveFSM->cancel_event(component, p_query_sensor_data);
+		pEventsClient_ReceiveFSM->cancel_event(*this, component, p_query_sensor_data);
 	}
 	p_query_state = 0;
 }
@@ -144,7 +143,7 @@ void RangeSensorClient_ReceiveFSM::pQueryCallback(const ros::TimerEvent& event)
 	}
 }
 
-void RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction(JausAddress &sender, unsigned int reportlen, const unsigned char* reportdata)
+void RangeSensorClient_ReceiveFSM::event(JausAddress sender, unsigned short query_msg_id, unsigned int reportlen, const unsigned char* reportdata)
 {
 	ReportRangeSensorData report;
 	report.decode(reportdata);
@@ -157,7 +156,7 @@ void RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction(JausA
 
 void RangeSensorClient_ReceiveFSM::handleConfirmSensorConfigurationAction(ConfirmSensorConfiguration msg, Receive::Body::ReceiveRec transportData)
 {
-	ROS_WARN("RangeSensorClient: handleConfirmSensorConfigurationAction not implemented!");
+	ROS_WARN_NAMED("RangeSensorClient", "handleConfirmSensorConfigurationAction not implemented!");
 }
 
 void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(ReportRangeSensorCapabilities msg, Receive::Body::ReceiveRec transportData)
@@ -167,8 +166,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 	uint8_t node_id = transportData.getSrcNodeID();
 	uint8_t component_id = transportData.getSrcComponentID();
 	JausAddress sender(subsystem_id, node_id, component_id);
-	ROS_INFO_NAMED("RangeSensorClient", "received capabilities from %d.%d.%d",
-			sender.getSubsystemID(), sender.getNodeID(), sender.getComponentID());
+	ROS_INFO_NAMED("RangeSensorClient", "received capabilities from %s", sender.str().c_str());
 	// create for each sensor a publisher
 	for (unsigned int i = 0; i < msg.getBody()->getRangeSensorCapabilitiesList()->getNumberOfElements(); i++) {
 		ReportRangeSensorCapabilities::Body::RangeSensorCapabilitiesList::RangeSensorCapabilitiesRec *item = msg.getBody()->getRangeSensorCapabilitiesList()->getElement(i);
@@ -195,7 +193,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 		} else {
 			ROS_INFO_NAMED("RangeSensorClient", "create EVENT to get range data from %d.%d.%d",
 					p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
-			pEventsClient_ReceiveFSM->create_event(&RangeSensorClient_ReceiveFSM::pHandleeventReportRangeSensorDataAction, this, p_remote_addr, p_query_sensor_data, 5.0, 0);
+			pEventsClient_ReceiveFSM->create_event(*this, p_remote_addr, p_query_sensor_data, 5.0, 0);
 		}
 	}
 }

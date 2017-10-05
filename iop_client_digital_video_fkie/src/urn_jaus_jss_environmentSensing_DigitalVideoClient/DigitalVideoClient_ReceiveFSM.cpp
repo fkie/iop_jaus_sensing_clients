@@ -22,6 +22,7 @@ along with this program; or you can read the full license at
 
 
 #include <iop_ocu_slavelib_fkie/Slave.h>
+#include <iop_component_fkie/iop_config.h>
 
 #include "urn_jaus_jss_environmentSensing_DigitalVideoClient/DigitalVideoClient_ReceiveFSM.h"
 
@@ -49,7 +50,6 @@ DigitalVideoClient_ReceiveFSM::DigitalVideoClient_ReceiveFSM(urn_jaus_jss_core_T
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
-	p_pnh = ros::NodeHandle("~");
 	p_current_resource_id = 65535;
 	p_has_access = false;
 }
@@ -67,7 +67,8 @@ void DigitalVideoClient_ReceiveFSM::setupNotifications()
 	pAccessControlClient_ReceiveFSM->registerNotification("Receiving", ieHandler, "InternalStateChange_To_DigitalVideoClient_ReceiveFSM_Receiving_Ready", "AccessControlClient_ReceiveFSM");
 	registerNotification("Receiving_Ready", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving_Ready", "DigitalVideoClient_ReceiveFSM");
 	registerNotification("Receiving", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving", "DigitalVideoClient_ReceiveFSM");
-	p_sub_cur_dv_id = p_nh.subscribe("dv_resource_id", 10, &DigitalVideoClient_ReceiveFSM::p_dandle_current_ressource_id, this);
+	iop::Config cfg("~DigitalVideoClient");
+	p_sub_cur_dv_id = cfg.subscribe("dv_resource_id", 10, &DigitalVideoClient_ReceiveFSM::p_dandle_current_ressource_id, this);
 	ocu::Slave &slave = ocu::Slave::get_instance(*(jausRouter->getJausAddress()));
 	slave.add_supported_service(*this, "urn:jaus:jss:environmentSensing:DigitalVideo", 1, 0);
 

@@ -85,7 +85,6 @@ protected:
 
 	JausAddress p_remote_addr;
 	ros::NodeHandle p_nh;
-	ros::NodeHandle p_pnh;
 	ros::Subscriber p_sub_cur_dv_id;
 	unsigned short p_current_resource_id;
 	bool p_has_access;
