@@ -1,0 +1,10 @@
+<library path="libiop_client_still_image_fkie">
+  <class name="StillImageClient" type="iop::StillImageClientPlugin" base_class_type="iop::PluginInterface">
+    <description>
+      DigitalVideoService client Plugin, e.g. for OCU
+    </description>
+    <iop_service name="StillImageClient" id="urn:jaus:jss:environmentSensing:StillImageClient" version="1.0">
+      <inherits_from id="urn:jaus:jss:environmentSensing:VisualSensorClient" min_version="1.0"/>
+    </iop_service>
+  </class>
+</library>
