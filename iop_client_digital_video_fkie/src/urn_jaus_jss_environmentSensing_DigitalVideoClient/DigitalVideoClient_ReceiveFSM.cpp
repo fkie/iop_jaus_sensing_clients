@@ -37,7 +37,7 @@ namespace urn_jaus_jss_environmentSensing_DigitalVideoClient
 
 
 
-DigitalVideoClient_ReceiveFSM::DigitalVideoClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM)
+DigitalVideoClient_ReceiveFSM::DigitalVideoClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClient_ReceiveFSM* pVisualSensorClient_ReceiveFSM)
 {
 
 	/*
@@ -50,6 +50,7 @@ DigitalVideoClient_ReceiveFSM::DigitalVideoClient_ReceiveFSM(urn_jaus_jss_core_T
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
+	this->pVisualSensorClient_ReceiveFSM = pVisualSensorClient_ReceiveFSM;
 	p_current_resource_id = 65535;
 	p_has_access = false;
 }
@@ -63,10 +64,10 @@ DigitalVideoClient_ReceiveFSM::~DigitalVideoClient_ReceiveFSM()
 
 void DigitalVideoClient_ReceiveFSM::setupNotifications()
 {
-	pAccessControlClient_ReceiveFSM->registerNotification("Receiving_Ready", ieHandler, "InternalStateChange_To_DigitalVideoClient_ReceiveFSM_Receiving_Ready", "AccessControlClient_ReceiveFSM");
-	pAccessControlClient_ReceiveFSM->registerNotification("Receiving", ieHandler, "InternalStateChange_To_DigitalVideoClient_ReceiveFSM_Receiving_Ready", "AccessControlClient_ReceiveFSM");
-	registerNotification("Receiving_Ready", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving_Ready", "DigitalVideoClient_ReceiveFSM");
-	registerNotification("Receiving", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving", "DigitalVideoClient_ReceiveFSM");
+	pVisualSensorClient_ReceiveFSM->registerNotification("Receiving_Ready", ieHandler, "InternalStateChange_To_DigitalVideoClient_ReceiveFSM_Receiving_Ready", "VisualSensorClient_ReceiveFSM");
+	pVisualSensorClient_ReceiveFSM->registerNotification("Receiving", ieHandler, "InternalStateChange_To_DigitalVideoClient_ReceiveFSM_Receiving_Ready", "VisualSensorClient_ReceiveFSM");
+	registerNotification("Receiving_Ready", pVisualSensorClient_ReceiveFSM->getHandler(), "InternalStateChange_To_VisualSensorClient_ReceiveFSM_Receiving_Ready", "DigitalVideoClient_ReceiveFSM");
+	registerNotification("Receiving", pVisualSensorClient_ReceiveFSM->getHandler(), "InternalStateChange_To_VisualSensorClient_ReceiveFSM_Receiving", "DigitalVideoClient_ReceiveFSM");
 	iop::Config cfg("~DigitalVideoClient");
 	p_sub_cur_dv_id = cfg.subscribe("dv_resource_id", 10, &DigitalVideoClient_ReceiveFSM::p_dandle_current_ressource_id, this);
 	ocu::Slave &slave = ocu::Slave::get_instance(*(jausRouter->getJausAddress()));

@@ -4,7 +4,7 @@
       DigitalVideoService client Plugin, e.g. for OCU
     </description>
     <iop_service name="DigitalVideoClient" id="urn:jaus:jss:environmentSensing:DigitalVideoClient" version="1.0">
-      <inherits_from id="urn:jaus:jss:core:AccessControlClient" min_version="1.0"/>
+      <inherits_from id="urn:jaus:jss:environmentSensing:VisualSensorClient" min_version="1.0"/>
     </iop_service>
   </class>
 </library>

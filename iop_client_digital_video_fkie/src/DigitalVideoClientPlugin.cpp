@@ -25,6 +25,7 @@ along with this program; or you can read the full license at
 
 using namespace iop;
 using namespace urn_jaus_jss_environmentSensing_DigitalVideoClient ;
+using namespace urn_jaus_jss_environmentSensing_VisualSensorClient;
 using namespace urn_jaus_jss_core_AccessControlClient;
 using namespace urn_jaus_jss_core_EventsClient;
 using namespace urn_jaus_jss_core_Transport;
@@ -34,6 +35,7 @@ DigitalVideoClientPlugin::DigitalVideoClientPlugin()
 {
 	p_my_service = NULL;
 	p_base_service = NULL;
+	p_access_service = NULL;
 	p_events_service = NULL;
 	p_transport_service = NULL;
 }
@@ -45,10 +47,11 @@ JTS::Service* DigitalVideoClientPlugin::get_service()
 
 void DigitalVideoClientPlugin::create_service(JTS::JausRouter* jaus_router)
 {
-	p_base_service = static_cast<AccessControlClientService *>(get_base_service());
-	p_events_service = static_cast<EventsClientService *>(get_base_service(2));
-	p_transport_service = static_cast<TransportService *>(get_base_service(3));
-	p_my_service = new DigitalVideoClientService(jaus_router, p_transport_service, p_events_service, p_base_service);
+	p_base_service = static_cast<VisualSensorClientService *>(get_base_service());
+	p_access_service = static_cast<AccessControlClientService *>(get_base_service(2));
+	p_events_service = static_cast<EventsClientService *>(get_base_service(3));
+	p_transport_service = static_cast<TransportService *>(get_base_service(4));
+	p_my_service = new DigitalVideoClientService(jaus_router, p_transport_service, p_events_service, p_access_service, p_base_service);
 }
 
 PLUGINLIB_EXPORT_CLASS(iop::DigitalVideoClientPlugin, iop::PluginInterface)

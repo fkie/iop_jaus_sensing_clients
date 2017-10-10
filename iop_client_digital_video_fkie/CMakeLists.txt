@@ -6,6 +6,7 @@ project(iop_client_digital_video_fkie)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
                 iop_ocu_slavelib_fkie
+                iop_client_visual_sensor_fkie
                 roscpp
                 std_msgs
                 )
@@ -30,6 +31,7 @@ catkin_package(
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS
         iop_ocu_slavelib_fkie
+        iop_client_visual_sensor_fkie
         std_msgs
     DEPENDS Boost
 )
@@ -48,6 +50,7 @@ iop_code_generator(
     urn.jaus.jss.core-v1.0/AccessControlClient.xml
     urn.jaus.jss.core-v1.0/EventsClient.xml
     urn.jaus.jss.core-v1.0/Transport.xml
+    urn.jaus.jss.environmentSensing/VisualSensorClient.xml
     urn.jaus.jss.environmentSensing/DigitalVideoClient.xml
   OWN_IDLS
   OVERRIDES
@@ -55,6 +58,7 @@ iop_code_generator(
     src/urn_jaus_jss_environmentSensing_DigitalVideoClient/DigitalVideoClient_ReceiveFSM.cpp
     src/main.cpp
   EXTERN_SERVICES
+    urn_jaus_jss_environmentSensing_VisualSensorClient
     urn_jaus_jss_core_AccessControlClient
     urn_jaus_jss_core_EventsClient
     urn_jaus_jss_core_Transport

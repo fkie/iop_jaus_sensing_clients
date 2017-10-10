@@ -25,6 +25,7 @@ along with this program; or you can read the full license at
 #define DIGITALVIDEOCLIENTPLUGIN_H
 
 #include "urn_jaus_jss_environmentSensing_DigitalVideoClient/DigitalVideoClientService.h"
+#include "urn_jaus_jss_environmentSensing_VisualSensorClient/VisualSensorClientService.h"
 #include "urn_jaus_jss_core_AccessControlClient/AccessControlClientService.h"
 #include "urn_jaus_jss_core_EventsClient/EventsClientService.h"
 #include "urn_jaus_jss_core_Transport/TransportService.h"
@@ -44,7 +45,8 @@ public:
 
 protected:
 	urn_jaus_jss_environmentSensing_DigitalVideoClient::DigitalVideoClientService *p_my_service;
-	urn_jaus_jss_core_AccessControlClient::AccessControlClientService *p_base_service;
+	urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClientService *p_base_service;
+	urn_jaus_jss_core_AccessControlClient::AccessControlClientService *p_access_service;
 	urn_jaus_jss_core_EventsClient::EventsClientService *p_events_service;
 	urn_jaus_jss_core_Transport::TransportService *p_transport_service;
 
