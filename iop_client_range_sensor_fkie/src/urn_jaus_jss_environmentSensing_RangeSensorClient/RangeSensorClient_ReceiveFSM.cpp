@@ -51,6 +51,7 @@ RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Tra
 	p_has_access = false;
 	p_query_state = 0;
 	p_by_query = false;
+	p_hz = 5.0;
 	QueryRangeSensorData::Body::QueryRangeSensorDataList::QueryRangeSensorDataRec drec;
 	drec.setSensorID(0); // 0 is specified to get all sensors
 	drec.setReportCoordinateSystem(1); // we use vehicle coordinate system
@@ -85,6 +86,7 @@ void RangeSensorClient_ReceiveFSM::setupNotifications()
 	registerNotification("Receiving_Ready", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving_Ready", "RangeSensorClient_ReceiveFSM");
 	registerNotification("Receiving", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving", "RangeSensorClient_ReceiveFSM");
 	iop::Config cfg("~RangeSensorClient");
+	cfg.param("hz", p_hz, p_hz, false, false);
 	cfg.param("tf_frame_robot", p_tf_frame_robot, std::string("base_link"));
 	Slave &slave = Slave::get_instance(*(jausRouter->getJausAddress()));
 	slave.add_supported_service(*this, "urn:jaus:jss:environmentSensing:RangeSensor", 1, 0);
@@ -187,13 +189,15 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 	if (p_remote_addr.get() != 0) {
 		if (p_by_query) {
 			p_query_timer.stop();
-			ROS_INFO_NAMED("RangeSensorClient", "create QUERY timer to get range data from %d.%d.%d",
-					p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
-			p_query_timer = p_nh.createTimer(ros::Duration(0.2), &RangeSensorClient_ReceiveFSM::pQueryCallback, this);
+			if (p_hz > 0) {
+				ROS_INFO_NAMED("RangeSensorClient", "create QUERY timer to get range data from %s", p_remote_addr.str().c_str());
+				p_query_timer = p_nh.createTimer(ros::Duration(1.0 / p_hz), &RangeSensorClient_ReceiveFSM::pQueryCallback, this);
+			} else {
+				ROS_WARN_NAMED("RangeSensorClient", "invalid hz %f.2f for QUERY timer to get range data from %s", p_hz, p_remote_addr.str().c_str());
+			}
 		} else {
-			ROS_INFO_NAMED("RangeSensorClient", "create EVENT to get range data from %d.%d.%d",
-					p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
-			pEventsClient_ReceiveFSM->create_event(*this, p_remote_addr, p_query_sensor_data, 5.0, 0);
+			ROS_INFO_NAMED("RangeSensorClient", "create EVENT to get range data from %s", p_remote_addr.str().c_str());
+			pEventsClient_ReceiveFSM->create_event(*this, p_remote_addr, p_query_sensor_data, p_hz);
 		}
 	}
 }
@@ -211,8 +215,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorConfigurationAction(Re
 	uint8_t component_id = transportData.getSrcComponentID();
 	JausAddress sender(subsystem_id, node_id, component_id);
 	ROS_DEBUG_NAMED("RangeSensorClient", "ReportRangeSensorConfiguration, count sensors: %d", msg.getBody()->getRangeSensorConfigurationList()->getNumberOfElements());
-	ROS_INFO_NAMED("RangeSensorClient", "request GeometricProperties and SensorCapabilities from %d.%d.%d",
-				   sender.getSubsystemID(), sender.getNodeID(), sender.getComponentID());
+	ROS_INFO_NAMED("RangeSensorClient", "request GeometricProperties and SensorCapabilities from %s", sender.str().c_str());
 	p_query_state = 1;
 	sendJausMessage(p_query_geo, sender);
 	sendJausMessage(p_query_cap, sender);

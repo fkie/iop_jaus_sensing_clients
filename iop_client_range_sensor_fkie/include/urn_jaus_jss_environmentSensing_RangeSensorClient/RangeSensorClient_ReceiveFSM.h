@@ -109,6 +109,7 @@ protected:
 	std::map<unsigned int, int> p_sensor_min_range;
 	int p_query_state;
 	bool p_by_query;
+	double p_hz;
 
 	JausAddress p_remote_addr;
 	bool p_has_access;

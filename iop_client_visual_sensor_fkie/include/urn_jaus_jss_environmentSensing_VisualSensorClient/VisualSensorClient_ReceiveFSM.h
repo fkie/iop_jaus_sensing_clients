@@ -52,6 +52,7 @@ public:
 	void cancel_events(std::string service_uri, JausAddress component, bool by_query=false);
 	/// Guard Methods
 
+	std::string get_sensor_name(JausAddress &component, unsigned short id);
 
 
 	VisualSensorClient_ReceiveFSMContext *context;
@@ -64,10 +65,12 @@ protected:
 	urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
 
 	JausAddress p_remote_addr;
+	ros::NodeHandle p_nh;
 	bool p_has_access;
 	ros::Timer p_query_timer;
 	ros::Publisher p_pub_visual_sensor_names;
 	QueryVisualSensorCapabilities p_query_caps;
+	std::map<unsigned int, std::map<unsigned short, std::string> > p_sensor_names;  // JausAddress, sensor ID, name
 
 	void pQueryCallback(const ros::TimerEvent& event);
 

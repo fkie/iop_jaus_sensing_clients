@@ -101,6 +101,18 @@ void VisualSensorClient_ReceiveFSM::pQueryCallback(const ros::TimerEvent& event)
 	}
 }
 
+std::string VisualSensorClient_ReceiveFSM::get_sensor_name(JausAddress &component, unsigned short id)
+{
+	std::map<unsigned int, std::map<unsigned short, std::string> >::iterator it = p_sensor_names.find(component.get());
+	if (it != p_sensor_names.end()) {
+		std::map<unsigned short, std::string>::iterator it2 = it->second.find(id);
+		if (it2 != it->second.end()) {
+			return it2->second;
+		}
+	}
+	return "";
+}
+
 void VisualSensorClient_ReceiveFSM::handleConfirmSensorConfigurationAction(ConfirmSensorConfiguration msg, Receive::Body::ReceiveRec transportData)
 {
 	/// Insert User Code HERE
@@ -117,11 +129,17 @@ void VisualSensorClient_ReceiveFSM::handleReportVisualSensorCapabilitiesAction(R
 	p_query_timer.stop();
 	iop_msgs_fkie::VisualSensorNames ros_msg;
 	ReportVisualSensorCapabilities::Body::VisualSensorCapabilitiesList *caplist = msg.getBody()->getVisualSensorCapabilitiesList();
+	JausAddress sender = transportData.getAddress();
+	std::map<unsigned int, std::map<unsigned short, std::string> >::iterator it = p_sensor_names.find(sender.get());
+	if (it != p_sensor_names.end()) {
+		it->second.clear();
+	}
 	for (unsigned int i = 0; i < caplist->getNumberOfElements(); i++) {
 		ReportVisualSensorCapabilities::Body::VisualSensorCapabilitiesList::VisualSensorCapabilitiesRec *entry = caplist->getElement(i);
 		iop_msgs_fkie::VisualSensorName sn;
 		sn.name = entry->getSensorName();
 		sn.resource_id = entry->getSensorID();
+		p_sensor_names[sender.get()][sn.resource_id] = sn.name;
 		ros_msg.names.push_back(sn);
 	}
 	p_pub_visual_sensor_names.publish(ros_msg);
