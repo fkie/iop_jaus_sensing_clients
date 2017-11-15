@@ -5,8 +5,8 @@ project(iop_client_digital_video_fkie)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-                iop_ocu_slavelib_fkie
                 iop_client_visual_sensor_fkie
+                iop_ocu_slavelib_fkie
                 roscpp
                 std_msgs
                 )
@@ -30,8 +30,8 @@ iop_export_service(urn_jaus_jss_environmentSensing_DigitalVideoClient)
 catkin_package(
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS
-        iop_ocu_slavelib_fkie
         iop_client_visual_sensor_fkie
+        iop_ocu_slavelib_fkie
         std_msgs
     DEPENDS Boost
 )

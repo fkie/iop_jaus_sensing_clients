@@ -61,7 +61,7 @@ void VisualSensorClient_ReceiveFSM::control_allowed(std::string service_uri, Jau
 		p_remote_addr = component;
 		p_has_access = true;
 	} else {
-		ROS_WARN_STREAM("[VisualSensorClient_ReceiveFSM] unexpected control allowed for " << service_uri << " received, ignored!");
+		ROS_WARN_STREAM_NAMED("VisualSensorClient", "unexpected control allowed for " << service_uri << " received, ignored!");
 	}
 }
 
@@ -81,7 +81,7 @@ void VisualSensorClient_ReceiveFSM::access_deactivated(std::string service_uri, 
 
 void VisualSensorClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
 {
-	ROS_INFO_NAMED("GlobalPoseSensorClient", "create QUERY timer to update names for visual sensors from %d.%d.%d",
+	ROS_INFO_NAMED("VisualSensorClient", "create QUERY timer to update names for visual sensors from %d.%d.%d",
 			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
 	p_query_timer = p_nh.createTimer(ros::Duration(3), &VisualSensorClient_ReceiveFSM::pQueryCallback, this);
 	sendJausMessage(p_query_caps, p_remote_addr);
@@ -95,7 +95,7 @@ void VisualSensorClient_ReceiveFSM::cancel_events(std::string service_uri, JausA
 void VisualSensorClient_ReceiveFSM::pQueryCallback(const ros::TimerEvent& event)
 {
 	if (p_remote_addr.get() != 0) {
-		ROS_INFO_NAMED("DigitalResourceClient", "... update names for visual sensors from %d.%d.%d",
+		ROS_INFO_NAMED("VisualSensorClient", "... update names for visual sensors from %d.%d.%d",
 				p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
 		sendJausMessage(p_query_caps, p_remote_addr);
 	}
