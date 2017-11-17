@@ -115,17 +115,17 @@ void RangeSensorClient_ReceiveFSM::access_deactivated(std::string service_uri, J
 
 void RangeSensorClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
 {
+	ROS_DEBUG_NAMED("RangeSensorClient", "create EVENT for range sensor %s", component.str().c_str());
 	p_by_query = by_query;
 	sendJausMessage(p_query_cfg, component);
-	p_query_timer = p_nh.createTimer(ros::Duration(5), &RangeSensorClient_ReceiveFSM::pQueryCallback, this);
+	p_query_timer = p_nh.createTimer(ros::Duration(3), &RangeSensorClient_ReceiveFSM::pQueryCallback, this);
 }
 
 void RangeSensorClient_ReceiveFSM::cancel_events(std::string service_uri, JausAddress component, bool by_query)
 {
 	p_query_timer.stop();
 	if (!by_query) {
-		ROS_INFO_NAMED("RangeSensorClient", "cancel EVENT for range sensor data by %d.%d.%d",
-				component.getSubsystemID(), component.getNodeID(), component.getComponentID());
+		ROS_INFO_NAMED("RangeSensorClient", "cancel EVENT for range sensor data by %s", component.str().c_str());
 		pEventsClient_ReceiveFSM->cancel_event(*this, component, p_query_sensor_data);
 	}
 	p_query_state = 0;
@@ -137,6 +137,7 @@ void RangeSensorClient_ReceiveFSM::pQueryCallback(const ros::TimerEvent& event)
 		if (p_query_state == 0) {
 			sendJausMessage(p_query_cfg, p_remote_addr);
 		} else if (p_query_state == 1) {
+			ROS_DEBUG_NAMED("RangeSensorClient", "send query geometrics and capabilities for range sensor to %s", p_remote_addr.str().c_str());
 			sendJausMessage(p_query_geo, p_remote_addr);
 			sendJausMessage(p_query_cap, p_remote_addr);
 		} else {
@@ -168,14 +169,14 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 	uint8_t node_id = transportData.getSrcNodeID();
 	uint8_t component_id = transportData.getSrcComponentID();
 	JausAddress sender(subsystem_id, node_id, component_id);
-	ROS_INFO_NAMED("RangeSensorClient", "received capabilities from %s", sender.str().c_str());
+	ROS_INFO_NAMED("RangeSensorClient", "received capabilities for range data from %s", sender.str().c_str());
 	// create for each sensor a publisher
 	for (unsigned int i = 0; i < msg.getBody()->getRangeSensorCapabilitiesList()->getNumberOfElements(); i++) {
 		ReportRangeSensorCapabilities::Body::RangeSensorCapabilitiesList::RangeSensorCapabilitiesRec *item = msg.getBody()->getRangeSensorCapabilitiesList()->getElement(i);
 		unsigned int id = item->getSensorID();
 		if (p_publisher_map.find(id) == p_publisher_map.end()) {
 			p_publisher_map[id] = p_nh.advertise<sensor_msgs::LaserScan>(item->getSensorName(), 1, false);
-			p_sensor_names[id] = ros::this_node::getNamespace().substr(1) + item->getSensorName();
+			p_sensor_names[id] = ros::this_node::getNamespace().substr(2) + "/" + item->getSensorName();
 			p_sensor_max_range[id] = item->getMaximumRange();
 			p_sensor_min_range[id] = item->getMinimumRange();
 			try {
@@ -239,9 +240,12 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 				ReportRangeSensorData::Body::RangeSensorDataList::RangeSensorDataVariant::RangeSensorDataSeq::RangeSensorDataRec::TimeStamp *ts = datarec->getTimeStamp();
 				iop::Timestamp stamp(ts->getDay(), ts->getHour(), ts->getMinutes(), ts->getSeconds(), ts->getMilliseconds());
 				try {
-					geometry_msgs::TransformStamped tf_msg  = p_tf_map[id];
+					geometry_msgs::TransformStamped& tf_msg  = p_tf_map.at(id);
 					if (! tf_msg.child_frame_id.empty()) {
 						tf_msg.header.stamp = stamp.ros_time;
+						if (tf_msg.header.frame_id.empty()) {
+							tf_msg.header.frame_id = this->p_tf_frame_robot;
+						}
 						p_tf_broadcaster.sendTransform(tf_msg);
 					}
 				} catch (std::exception &e) {
@@ -291,10 +295,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 
 void RangeSensorClient_ReceiveFSM::handleReportSensorGeometricPropertiesAction(ReportSensorGeometricProperties msg, Receive::Body::ReceiveRec transportData)
 {
-	uint16_t subsystem_id = transportData.getSrcSubsystemID();
-	uint8_t node_id = transportData.getSrcNodeID();
-	uint8_t component_id = transportData.getSrcComponentID();
-	JausAddress sender(subsystem_id, node_id, component_id);
+	JausAddress sender = transportData.getAddress();
 	ROS_DEBUG_NAMED("RangeSensorClient", "ReportSensorGeometricProperties, count sensors: %d", msg.getBody()->getGeometricPropertiesList()->getNumberOfElements());
 	// create tf data for all valid sensors positions
 	for (unsigned int i = 0; i < msg.getBody()->getGeometricPropertiesList()->getNumberOfElements(); i++) {
@@ -314,7 +315,7 @@ void RangeSensorClient_ReceiveFSM::handleReportSensorGeometricPropertiesAction(R
 			msg.header.stamp = ros::Time::now();
 			msg.header.frame_id = this->p_tf_frame_robot;
 			msg.child_frame_id = p_sensor_names[sensor_id];
-			ROS_DEBUG_NAMED("RangeSensorClient", "tf %s -> %s", this->p_tf_frame_robot.c_str(), p_sensor_names[sensor_id].c_str());
+			ROS_DEBUG_NAMED("RangeSensorClient", "initialized tf %s -> %s", this->p_tf_frame_robot.c_str(), p_sensor_names[sensor_id].c_str());
 			p_tf_map[sensor_id] = msg;
 		} catch (std::exception &e) {
 			ROS_WARN("RangeSensorClient: can not create tf for sensor: %s", e.what());
