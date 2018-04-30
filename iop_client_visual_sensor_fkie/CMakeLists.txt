@@ -5,13 +5,11 @@ project(iop_client_visual_sensor_fkie)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+                iop_component_fkie
                 iop_ocu_slavelib_fkie
                 roscpp
                 std_msgs
                 )
-
-## System dependencies are found with CMake's conventions
-find_package(Boost REQUIRED COMPONENTS system thread)
 
 iop_init(COMPONENT_ID 0)
 # export this service for index in eclipse
@@ -29,9 +27,9 @@ iop_export_service(urn_jaus_jss_environmentSensing_VisualSensorClient)
 catkin_package(
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS
+        iop_component_fkie
         iop_ocu_slavelib_fkie
         std_msgs
-    DEPENDS Boost
 )
 
 ###########

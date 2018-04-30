@@ -7,14 +7,12 @@ project(iop_client_still_image_fkie)
 find_package(catkin REQUIRED COMPONENTS
                 cv_bridge
                 image_transport
-                iop_ocu_slavelib_fkie
                 iop_client_visual_sensor_fkie
+                iop_component_fkie
+                iop_ocu_slavelib_fkie
                 roscpp
-                std_msgs
+                sensor_msgs
                 )
-
-## System dependencies are found with CMake's conventions
-find_package(Boost REQUIRED COMPONENTS system thread)
 
 iop_init(COMPONENT_ID 0)
 # export this service for index in eclipse
@@ -34,10 +32,10 @@ catkin_package(
     CATKIN_DEPENDS
         cv_bridge
         image_transport
-        iop_ocu_slavelib_fkie
         iop_client_visual_sensor_fkie
-        std_msgs
-    DEPENDS Boost
+        iop_component_fkie
+        iop_ocu_slavelib_fkie
+        sensor_msgs
 )
 
 ###########

@@ -6,13 +6,11 @@ project(iop_client_digital_video_fkie)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
                 iop_client_visual_sensor_fkie
+                iop_component_fkie
                 iop_ocu_slavelib_fkie
                 roscpp
                 std_msgs
                 )
-
-## System dependencies are found with CMake's conventions
-find_package(Boost REQUIRED COMPONENTS system thread)
 
 iop_init(COMPONENT_ID 0)
 # export this service for index in eclipse
@@ -31,9 +29,9 @@ catkin_package(
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS
         iop_client_visual_sensor_fkie
+        iop_component_fkie
         iop_ocu_slavelib_fkie
         std_msgs
-    DEPENDS Boost
 )
 
 ###########
