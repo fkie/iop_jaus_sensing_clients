@@ -32,7 +32,7 @@ VisualSensorClient_ReceiveFSM::VisualSensorClient_ReceiveFSM(urn_jaus_jss_core_T
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
 	p_has_access = false;
 	QueryVisualSensorCapabilities::Body::QueryVisualSensorCapabilitiesList::QueryVisualSensorCapabilitiesRec qc_rec;
-	qc_rec.setSensorID(65535);  // request capabilities for all available sensors
+	qc_rec.setSensorID(0);  // request capabilities for all available sensors
 	p_query_caps.getBody()->getQueryVisualSensorCapabilitiesList()->addElement(qc_rec);
 }
 
