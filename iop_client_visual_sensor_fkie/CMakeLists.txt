@@ -25,6 +25,7 @@ iop_export_service(urn_jaus_jss_environmentSensing_VisualSensorClient)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
+    INCLUDE_DIRS include/public
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS
         iop_component_fkie
@@ -59,10 +60,13 @@ iop_code_generator(
   GENERATED_SOURCES cppfiles
 )
 
-include_directories(${catkin_INCLUDE_DIRS})
+include_directories(${catkin_INCLUDE_DIRS}
+                    include/public
+)
 
 ## Declare a cpp executable
 add_library(${PROJECT_NAME}
+            src/VisualSensorClient.cpp
             src/VisualSensorClientPlugin.cpp
             ${cppfiles}
 )
@@ -72,6 +76,19 @@ target_link_libraries(${PROJECT_NAME}
                       ${catkin_LIBRARIES}
 )
 
+install(
+  DIRECTORY ${IOP_INSTALL_INCLUDE_DIRS} DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+  PATTERN "*.old" EXCLUDE
+  PATTERN "*.gen" EXCLUDE
+)
+
+install(
+  DIRECTORY include/public/${PROJECT_NAME} DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+  PATTERN "*.old" EXCLUDE
+  PATTERN "*.gen" EXCLUDE
+)
+
+# Mark executables and/or libraries for installation
 install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
