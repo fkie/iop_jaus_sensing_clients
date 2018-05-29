@@ -10,6 +10,7 @@
   <url type="website">https://github.com/fkie/iop_jaus_sensing_clients</url>
 
   <buildtool_depend>catkin</buildtool_depend>
+  <depend>diagnostic_msgs</depend>
   <depend>iop_component_fkie</depend>
   <depend>iop_ocu_slavelib_fkie</depend>
   <depend>roscpp</depend>

@@ -22,6 +22,7 @@
 
 #include <boost/thread/recursive_mutex.hpp>
 #include <ros/ros.h>
+#include <diagnostic_msgs/DiagnosticStatus.h>
 #include <std_msgs/UInt16.h>
 #include <iop_ocu_slavelib_fkie/SlaveHandlerInterface.h>
 #include <iop_events_fkie/EventHandlerInterface.h>
@@ -86,9 +87,11 @@ protected:
 	QueryVisualSensorConfiguration p_query_cfgs;
 	std::map<unsigned int, std::map<unsigned short, std::string> > p_sensor_names;  // JausAddress, sensor ID, name
 	std::map<jUnsignedShortInteger, boost::shared_ptr<iop::VisualSensorClient> > p_sensors;
+	ros::Publisher p_pub_diagnostic;
 
 	void pQueryCallback(const ros::TimerEvent& event);
 	void p_state_changed(jUnsignedShortInteger id, SetConfigurationRec cfg);
+        void p_pub_power_states();
 
 };
 

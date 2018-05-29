@@ -62,6 +62,7 @@ void VisualSensorClient_ReceiveFSM::setupNotifications()
 	iop::Config cfg("~VisualSensorClient");
 	cfg.param("hz", p_hz, p_hz, false, false);
 	p_pub_visual_sensor_names = cfg.advertise<iop_msgs_fkie::VisualSensorNames>("visual_sensor_names", 10, true);
+	p_pub_diagnostic = cfg.advertise<diagnostic_msgs::DiagnosticStatus>(std::string("power_states"), 10, true);
 	ocu::Slave &slave = ocu::Slave::get_instance(*(jausRouter->getJausAddress()));
 	slave.add_supported_service(*this, "urn:jaus:jss:environmentSensing:VisualSensor", 1, 0);
 }
@@ -217,6 +218,7 @@ void VisualSensorClient_ReceiveFSM::handleReportVisualSensorCapabilitiesAction(R
 			pEventsClient_ReceiveFSM->create_event(*this, p_remote_addr, p_query_cfgs, p_hz);
 		}
 	}
+	p_pub_power_states();
 }
 
 void VisualSensorClient_ReceiveFSM::handleReportVisualSensorConfigurationAction(ReportVisualSensorConfiguration msg, Receive::Body::ReceiveRec transportData)
@@ -228,10 +230,12 @@ void VisualSensorClient_ReceiveFSM::handleReportVisualSensorConfigurationAction(
 	for (unsigned int i = 0; i < clist->getNumberOfElements(); i++) {
 		ReportVisualSensorConfiguration::Body::VisualSensorConfigurationList::VisualSensorConfigurationRec *entry = clist->getElement(i);
 		std::map<jUnsignedShortInteger, boost::shared_ptr<iop::VisualSensorClient> >::iterator its = p_sensors.find(entry->getSensorID());
+		ROS_DEBUG_NAMED("VisualSensorClient", "  apply sensor %d: valid state: %d, state: %d", entry->getSensorID(), (int)entry->isSensorStateValid(), (int)entry->getSensorState());
 		if (its != p_sensors.end()) {
 			its->second->apply_configuration(*entry);
 		}
 	}
+	p_pub_power_states();
 }
 
 void VisualSensorClient_ReceiveFSM::p_state_changed(jUnsignedShortInteger id, SetConfigurationRec cfg)
@@ -248,5 +252,25 @@ void VisualSensorClient_ReceiveFSM::p_state_changed(jUnsignedShortInteger id, Se
 	}
 }
 
+void VisualSensorClient_ReceiveFSM::p_pub_power_states()
+{
+	lock_type lock(p_mutex);
+	diagnostic_msgs::DiagnosticStatus ros_msg;
+	ros_msg.level = diagnostic_msgs::DiagnosticStatus::OK;
+	std::map<jUnsignedShortInteger, boost::shared_ptr<iop::VisualSensorClient> >::iterator it;
+	for (it = p_sensors.begin(); it != p_sensors.end(); ++it) {
+		if (it->second->is_switchable()) {
+			diagnostic_msgs::KeyValue entry;
+			entry.key = it->second->get_name();
+			if (it->second->get_switch_state()) {
+				entry.value = "ON";
+			} else {
+				entry.value = "OFF";
+			}
+			ros_msg.values.push_back(entry);
+		}
+	}
+	p_pub_diagnostic.publish(ros_msg);
+}
 
 };

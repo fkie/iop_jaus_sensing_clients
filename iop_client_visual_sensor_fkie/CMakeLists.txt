@@ -5,6 +5,7 @@ project(iop_client_visual_sensor_fkie)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+                diagnostic_msgs
                 iop_component_fkie
                 iop_ocu_slavelib_fkie
                 roscpp
@@ -28,6 +29,7 @@ catkin_package(
     INCLUDE_DIRS include/public
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS
+        diagnostic_msgs
         iop_component_fkie
         iop_ocu_slavelib_fkie
         std_msgs
