@@ -287,7 +287,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 			}
 		} else {
 		  // it is an error
-		  ROS_WARN("RangeSensorClient: error rec received, code: %d, msg: %s", itemvar->getRangeSensorDataErrorRec()->getDataErrorCode(), itemvar->getRangeSensorDataErrorRec()->getErrorMessage().c_str());
+		  ROS_WARN("RangeSensorClient: error rec for ID: %d received, code: %d, msg: %s", itemvar->getRangeSensorDataErrorRec()->getSensorID(), itemvar->getRangeSensorDataErrorRec()->getDataErrorCode(), itemvar->getRangeSensorDataErrorRec()->getErrorMessage().c_str());
 		}
 	}
 	ROS_DEBUG_NAMED("RangeSensorClient", "ReportRangeSensorData, count sensors: %d", msg.getBody()->getRangeSensorDataList()->getNumberOfElements());
