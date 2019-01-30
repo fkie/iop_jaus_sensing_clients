@@ -1,0 +1,10 @@
+<library path="libfkie_iop_client_digital_video">
+  <class name="DigitalVideoClient" type="iop::DigitalVideoClientPlugin" base_class_type="iop::PluginInterface">
+    <description>
+      DigitalVideoService client Plugin, e.g. for OCU
+    </description>
+    <iop_service name="DigitalVideoClient" id="urn:jaus:jss:environmentSensing:DigitalVideoClient" version="1.0">
+      <inherits_from id="urn:jaus:jss:environmentSensing:VisualSensorClient" min_version="1.0"/>
+    </iop_service>
+  </class>
+</library>
