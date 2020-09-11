@@ -176,7 +176,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 		unsigned int id = item->getSensorID();
 		if (p_publisher_map.find(id) == p_publisher_map.end()) {
 			p_publisher_map[id] = p_nh.advertise<sensor_msgs::LaserScan>(item->getSensorName(), 1, false);
-			p_sensor_names[id] = ros::this_node::getNamespace().substr(2) + "/" + item->getSensorName();
+			p_sensor_names[id] = ros::names::append(ros::this_node::getNamespace(), item->getSensorName());
 			p_sensor_max_range[id] = item->getMaximumRange();
 			p_sensor_min_range[id] = item->getMinimumRange();
 			try {
