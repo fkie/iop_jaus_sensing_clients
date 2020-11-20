@@ -178,7 +178,7 @@ void StillImageClient_ReceiveFSM::handleReportStillImageDataAction(ReportStillIm
 //#endif
 			std::vector<unsigned char> data(rec->getImageFrame()->getData(), rec->getImageFrame()->getData() + rec->getImageFrame()->getLength());
 			cv::Mat m_img(data);
-			cv::Mat d_img = cv::imdecode(m_img, CV_LOAD_IMAGE_COLOR);
+			cv::Mat d_img = cv::imdecode(m_img, 1); //CV_LOAD_IMAGE_COLOR);
 			if( !d_img.data ) {
 				ROS_WARN_NAMED("StillImageClient", "received invalid image data from %s", sender.str().c_str());
 			} else {
