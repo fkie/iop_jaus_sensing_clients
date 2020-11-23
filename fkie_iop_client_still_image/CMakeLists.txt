@@ -6,10 +6,10 @@ project(fkie_iop_client_still_image)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
                 cv_bridge
-                image_transport
                 fkie_iop_client_visual_sensor
                 fkie_iop_component
                 fkie_iop_ocu_slavelib
+                image_transport
                 roscpp
                 sensor_msgs
                 )
@@ -31,10 +31,11 @@ catkin_package(
     LIBRARIES ${PROJECT_NAME}
     CATKIN_DEPENDS
         cv_bridge
-        image_transport
         fkie_iop_client_visual_sensor
         fkie_iop_component
         fkie_iop_ocu_slavelib
+        image_transport
+        roscpp
         sensor_msgs
 )
 

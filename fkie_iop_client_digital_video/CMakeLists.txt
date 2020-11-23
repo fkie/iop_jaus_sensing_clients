@@ -31,6 +31,7 @@ catkin_package(
         fkie_iop_client_visual_sensor
         fkie_iop_component
         fkie_iop_ocu_slavelib
+        roscpp
         std_msgs
 )
 

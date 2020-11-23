@@ -32,6 +32,7 @@ catkin_package(
         diagnostic_msgs
         fkie_iop_component
         fkie_iop_ocu_slavelib
+        roscpp
         std_msgs
 )
 
