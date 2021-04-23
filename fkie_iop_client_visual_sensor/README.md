@@ -14,34 +14,34 @@ _hz (float_ , Default: 0.0)
 
 #### Publisher:
 
-_visual_sensor_names (fkie_iop_msgs::VisualSensorNames)_
+_visual_sensor_names (fkie_iop_msgs::msg::VisualSensorNames)_
 
 > Publishes the discovered pairs of ID and name.
 
-_`ID`/pwr_state (std_msgs::Bool)_
+_`ID`/pwr_state (std_msgs::msg::Bool)_
 
 > Publishes the current power state of the sensor. Only available if remote sensor supports states.
 
-_`ID`/zoom_level (std_msgs::Bool)_
+_`ID`/zoom_level (std_msgs::msg::Bool)_
 
 > Publishes the current zoom level for the sensor. Only available if remote sensor supports zoom modes.
 
-_`ID`/fov_horizontal (std_msgs::Float32)_
+_`ID`/fov_horizontal (std_msgs::msg::Float32)_
 
 > Publishes the current horizontal field of view for the sensor.
 
-_`ID`/fov_vertical (std_msgs::Float32)_
+_`ID`/fov_vertical (std_msgs::msg::Float32)_
 
 > Publishes the current vertical field of view for the sensor.
 
 
 #### Subscriber:
 
-_`ID`/cmd_pwr_state (std_msgs::Bool)_
+_`ID`/cmd_pwr_state (std_msgs::msg::Bool)_
 
 > Sets the new power state for the sensor. Only available if remote sensor supports states.
 
-_`ID`/cmd_zoom_level (std_msgs::Bool)_
+_`ID`/cmd_zoom_level (std_msgs::msg::Bool)_
 
 > Sets the new zoom level for the sensor. Only available if remote sensor supports zoom modes.
 

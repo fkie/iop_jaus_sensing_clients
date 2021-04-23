@@ -1,23 +1,20 @@
 
-#include <fkie_iop_msgs/VisualSensorNames.h>
-
-#include <fkie_iop_ocu_slavelib/Slave.h>
-#include <fkie_iop_component/iop_config.h>
-
 #include "urn_jaus_jss_environmentSensing_VisualSensorClient/VisualSensorClient_ReceiveFSM.h"
-
+#include <fkie_iop_component/iop_config.hpp>
+#include <fkie_iop_ocu_slavelib/Slave.h>
 
 
 
 using namespace JTS;
-using namespace iop;
 
 namespace urn_jaus_jss_environmentSensing_VisualSensorClient
 {
 
 
 
-VisualSensorClient_ReceiveFSM::VisualSensorClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM)
+VisualSensorClient_ReceiveFSM::VisualSensorClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM)
+: logger(cmp->get_logger().get_child("VisualSensorClient")),
+  p_query_timer(std::chrono::milliseconds(1000), std::bind(&VisualSensorClient_ReceiveFSM::pQueryCallback, this), false)
 {
 
 	/*
@@ -27,9 +24,10 @@ VisualSensorClient_ReceiveFSM::VisualSensorClient_ReceiveFSM(urn_jaus_jss_core_T
 	 */
 	context = new VisualSensorClient_ReceiveFSMContext(*this);
 
-	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
-	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
+	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
+	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
+	this->cmp = cmp;
 	p_has_access = false;
 	p_query_state = 0;
 	p_by_query = false;
@@ -59,12 +57,22 @@ void VisualSensorClient_ReceiveFSM::setupNotifications()
 	pAccessControlClient_ReceiveFSM->registerNotification("Receiving", ieHandler, "InternalStateChange_To_VisualSensorClient_ReceiveFSM_Receiving_Ready", "AccessControlClient_ReceiveFSM");
 	registerNotification("Receiving_Ready", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving_Ready", "VisualSensorClient_ReceiveFSM");
 	registerNotification("Receiving", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving", "VisualSensorClient_ReceiveFSM");
-	iop::Config cfg("~VisualSensorClient");
-	cfg.param("hz", p_hz, p_hz, false, false);
-	p_pub_visual_sensor_names = cfg.advertise<fkie_iop_msgs::VisualSensorNames>("visual_sensor_names", 10, true);
-	p_pub_diagnostic = cfg.advertise<diagnostic_msgs::DiagnosticStatus>(std::string("power_states"), 10, true);
-	ocu::Slave &slave = ocu::Slave::get_instance(*(jausRouter->getJausAddress()));
-	slave.add_supported_service(*this, "urn:jaus:jss:environmentSensing:VisualSensor", 1, 0);
+
+}
+
+
+void VisualSensorClient_ReceiveFSM::setupIopConfiguration()
+{
+	iop::Config cfg(cmp, "VisualSensorClient");
+	cfg.declare_param<double>("hz", p_hz, true,
+		rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE,
+		"Sets how often the reports are requested. If use_queries is True hz must be greather then 0. In this case each time a Query message is sent to get a report. If use_queries is False an event is created to get Reports. In this case 0 disables the rate and an event of type on_change will be created.",
+		"Default: 0.0");
+	cfg.param("hz", p_hz, p_hz, false);
+	p_pub_visual_sensor_names = cfg.create_publisher<fkie_iop_msgs::msg::VisualSensorNames>("visual_sensor_names", 10);
+	p_pub_diagnostic = cfg.create_publisher<diagnostic_msgs::msg::DiagnosticStatus>(std::string("power_states"), 10);
+	auto slave = iop::ocu::Slave::get_instance(cmp);
+	slave->add_supported_service(*this, "urn:jaus:jss:environmentSensing:VisualSensor", 1, 0);
 }
 
 void VisualSensorClient_ReceiveFSM::control_allowed(std::string service_uri, JausAddress component, unsigned char authority)
@@ -73,7 +81,7 @@ void VisualSensorClient_ReceiveFSM::control_allowed(std::string service_uri, Jau
 		p_remote_addr = component;
 		p_has_access = true;
 	} else {
-		ROS_WARN_STREAM_NAMED("VisualSensorClient", "unexpected control allowed for " << service_uri << " received, ignored!");
+		RCLCPP_WARN(logger, "unexpected control allowed for %s received, ignored!", service_uri.c_str());
 	}
 }
 
@@ -87,14 +95,15 @@ void VisualSensorClient_ReceiveFSM::access_deactivated(std::string service_uri, 
 	p_has_access = false;
 	p_remote_addr = JausAddress(0);
 	// send an empty message on release control or monitoring
-	fkie_iop_msgs::VisualSensorNames ros_msg;
-	p_pub_visual_sensor_names.publish(ros_msg);
+	auto ros_msg = fkie_iop_msgs::msg::VisualSensorNames();
+	p_pub_visual_sensor_names->publish(ros_msg);
 }
 
 void VisualSensorClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
 {
-	ROS_INFO_NAMED("VisualSensorClient", "create QUERY timer to update names for visual sensors from %s", component.str().c_str());
-	p_query_timer = p_nh.createTimer(ros::Duration(1), &VisualSensorClient_ReceiveFSM::pQueryCallback, this);
+	RCLCPP_INFO(logger, "create QUERY timer to update names for visual sensors from %s", component.str().c_str());
+	p_query_timer.set_rate(1);
+	p_query_timer.start();
 	p_by_query = by_query;
 	sendJausMessage(p_query_caps, p_remote_addr);
 }
@@ -104,21 +113,21 @@ void VisualSensorClient_ReceiveFSM::cancel_events(std::string service_uri, JausA
 	lock_type lock(p_mutex);
 	p_query_timer.stop();
 	if (!by_query) {
-		ROS_INFO_NAMED("VisualSensorClient", "cancel EVENT for visual configuration by %s", component.str().c_str());
+		RCLCPP_INFO(logger, "cancel EVENT for visual configuration by %s", component.str().c_str());
 		pEventsClient_ReceiveFSM->cancel_event(*this, component, p_query_cfgs);
 	}
 	p_query_state = 0;
 	p_sensors.clear();
 }
 
-void VisualSensorClient_ReceiveFSM::pQueryCallback(const ros::TimerEvent& event)
+void VisualSensorClient_ReceiveFSM::pQueryCallback()
 {
 	if (p_remote_addr.get() != 0) {
 		if (p_query_state == 0) {
-			ROS_INFO_NAMED("VisualSensorClient", "... update names for visual sensors from %s", p_remote_addr.str().c_str());
+			RCLCPP_INFO(logger, "... update names for visual sensors from %s", p_remote_addr.str().c_str());
 			sendJausMessage(p_query_caps, p_remote_addr);
 		} else if (p_query_state == 1) {
-			ROS_DEBUG_NAMED("VisualSensorClient", "send query geometrics and coniguration for visual sensor to %s", p_remote_addr.str().c_str());
+			RCLCPP_DEBUG(logger, "send query geometrics and coniguration for visual sensor to %s", p_remote_addr.str().c_str());
 			sendJausMessage(p_query_geo, p_remote_addr);
 			sendJausMessage(p_query_cfgs, p_remote_addr);
 		} else {
@@ -154,7 +163,7 @@ std::string VisualSensorClient_ReceiveFSM::get_sensor_name(JausAddress &componen
 void VisualSensorClient_ReceiveFSM::handleConfirmSensorConfigurationAction(ConfirmSensorConfiguration msg, Receive::Body::ReceiveRec transportData)
 {
 	JausAddress sender = transportData.getAddress();
-	ROS_DEBUG_NAMED("VisualSensorClient", "received confirm configuration from %s for request %d with %d variant inside, currently ignored!",
+	RCLCPP_DEBUG(logger, "received confirm configuration from %s for request %d with %d variant inside, currently ignored!",
 			p_remote_addr.str().c_str(), (int)msg.getBody()->getConfirmSensorConfigurationSequence()->getRequestIdRec()->getRequestID(),
 			msg.getBody()->getConfirmSensorConfigurationSequence()->getConfirmSensorList()->getNumberOfElements());
 }
@@ -164,10 +173,10 @@ void VisualSensorClient_ReceiveFSM::handleReportSensorGeometricPropertiesAction(
 	lock_type lock(p_mutex);
 	JausAddress sender = transportData.getAddress();
 	ReportSensorGeometricProperties::Body::GeometricPropertiesList *clist = msg.getBody()->getGeometricPropertiesList();
-	ROS_DEBUG_NAMED("VisualSensorClient", "apply visual geometric properties from %s with %d sensors", p_remote_addr.str().c_str(), clist->getNumberOfElements());
+	RCLCPP_DEBUG(logger, "apply visual geometric properties from %s with %d sensors", p_remote_addr.str().c_str(), clist->getNumberOfElements());
 	for (unsigned int i = 0; i < clist->getNumberOfElements(); i++) {
 		ReportSensorGeometricProperties::Body::GeometricPropertiesList::GeometricPropertiesSequence *entry = clist->getElement(i);
-		std::map<jUnsignedShortInteger, boost::shared_ptr<iop::VisualSensorClient> >::iterator its = p_sensors.find(entry->getSensorIdRec()->getSensorID());
+		std::map<jUnsignedShortInteger, std::shared_ptr<iop::VisualSensorClient> >::iterator its = p_sensors.find(entry->getSensorIdRec()->getSensorID());
 		if (its != p_sensors.end()) {
 			its->second->apply_geometric(*entry);
 		}
@@ -180,26 +189,26 @@ void VisualSensorClient_ReceiveFSM::handleReportVisualSensorCapabilitiesAction(R
 	p_query_timer.stop();
 	p_sensors.clear();
 	JausAddress sender = transportData.getAddress();
-	fkie_iop_msgs::VisualSensorNames ros_msg;
+	auto ros_msg = fkie_iop_msgs::msg::VisualSensorNames();
 	ReportVisualSensorCapabilities::Body::VisualSensorCapabilitiesList *caplist = msg.getBody()->getVisualSensorCapabilitiesList();
-	ROS_DEBUG_NAMED("VisualSensorClient", "apply visual capabilities from %s with %d sensors", p_remote_addr.str().c_str(), caplist->getNumberOfElements());
+	RCLCPP_DEBUG(logger, "apply visual capabilities from %s with %d sensors", p_remote_addr.str().c_str(), caplist->getNumberOfElements());
 	std::map<unsigned int, std::map<unsigned short, std::string> >::iterator it = p_sensor_names.find(sender.get());
 	if (it != p_sensor_names.end()) {
 		it->second.clear();
 	}
 	for (unsigned int i = 0; i < caplist->getNumberOfElements(); i++) {
 		ReportVisualSensorCapabilities::Body::VisualSensorCapabilitiesList::VisualSensorCapabilitiesRec *entry = caplist->getElement(i);
-		fkie_iop_msgs::VisualSensorName sn;
+		auto sn = fkie_iop_msgs::msg::VisualSensorName();
 		sn.name = entry->getSensorName();
 		sn.resource_id = entry->getSensorID();
 		ros_msg.names.push_back(sn);
 		p_sensor_names[sender.get()][sn.resource_id] = sn.name;
-		boost::shared_ptr<iop::VisualSensorClient> vs(boost::make_shared<iop::VisualSensorClient>(*entry));
+		std::shared_ptr<iop::VisualSensorClient> vs(std::make_shared<iop::VisualSensorClient>(cmp, *entry));
 		vs->set_state_callback(&VisualSensorClient_ReceiveFSM::p_state_changed, this);
 		p_sensors[entry->getSensorID()] = vs;
 	}
-	p_pub_visual_sensor_names.publish(ros_msg);
-	ROS_DEBUG_NAMED("VisualSensorClient", "send query geometrics and coniguration for visual sensor to %s", p_remote_addr.str().c_str());
+	p_pub_visual_sensor_names->publish(ros_msg);
+	RCLCPP_DEBUG(logger, "send query geometrics and coniguration for visual sensor to %s", p_remote_addr.str().c_str());
 	sendJausMessage(p_query_geo, p_remote_addr);
 	sendJausMessage(p_query_cfgs, p_remote_addr);
 	p_query_state = 2;
@@ -208,13 +217,14 @@ void VisualSensorClient_ReceiveFSM::handleReportVisualSensorCapabilitiesAction(R
 		if (p_by_query) {
 			p_query_timer.stop();
 			if (p_hz > 0) {
-				ROS_INFO_NAMED("VisualSensorClient", "create QUERY timer to get visual configuration from %s", p_remote_addr.str().c_str());
-				p_query_timer = p_nh.createTimer(ros::Duration(1.0 / p_hz), &VisualSensorClient_ReceiveFSM::pQueryCallback, this);
+				RCLCPP_INFO(logger, "create QUERY timer to get visual configuration from %s", p_remote_addr.str().c_str());
+				p_query_timer.set_rate(p_hz);
+				p_query_timer.start();
 			} else {
-				ROS_WARN_NAMED("VisualSensorClient", "invalid hz %.2f for QUERY timer to get visual configuration from %s", p_hz, p_remote_addr.str().c_str());
+				RCLCPP_WARN(logger, "invalid hz %.2f for QUERY timer to get visual configuration from %s", p_hz, p_remote_addr.str().c_str());
 			}
 		} else {
-			ROS_INFO_NAMED("VisualSensorClient", "create EVENT to get visual configuration from %s", p_remote_addr.str().c_str());
+			RCLCPP_INFO(logger, "create EVENT to get visual configuration from %s", p_remote_addr.str().c_str());
 			pEventsClient_ReceiveFSM->create_event(*this, p_remote_addr, p_query_cfgs, p_hz);
 		}
 	}
@@ -226,11 +236,11 @@ void VisualSensorClient_ReceiveFSM::handleReportVisualSensorConfigurationAction(
 	lock_type lock(p_mutex);
 	JausAddress sender = transportData.getAddress();
 	ReportVisualSensorConfiguration::Body::VisualSensorConfigurationList *clist = msg.getBody()->getVisualSensorConfigurationList();
-	ROS_DEBUG_NAMED("VisualSensorClient", "apply visual configuration from %s with %d sensors", p_remote_addr.str().c_str(), clist->getNumberOfElements());
+	RCLCPP_DEBUG(logger, "apply visual configuration from %s with %d sensors", p_remote_addr.str().c_str(), clist->getNumberOfElements());
 	for (unsigned int i = 0; i < clist->getNumberOfElements(); i++) {
 		ReportVisualSensorConfiguration::Body::VisualSensorConfigurationList::VisualSensorConfigurationRec *entry = clist->getElement(i);
-		std::map<jUnsignedShortInteger, boost::shared_ptr<iop::VisualSensorClient> >::iterator its = p_sensors.find(entry->getSensorID());
-		ROS_DEBUG_NAMED("VisualSensorClient", "  apply sensor %d: valid state: %d, state: %d", entry->getSensorID(), (int)entry->isSensorStateValid(), (int)entry->getSensorState());
+		std::map<jUnsignedShortInteger, std::shared_ptr<iop::VisualSensorClient> >::iterator its = p_sensors.find(entry->getSensorID());
+		RCLCPP_DEBUG(logger, "  apply sensor %d: valid state: %d, state: %d", entry->getSensorID(), (int)entry->isSensorStateValid(), (int)entry->getSensorState());
 		if (its != p_sensors.end()) {
 			its->second->apply_configuration(*entry);
 		}
@@ -242,7 +252,7 @@ void VisualSensorClient_ReceiveFSM::p_state_changed(jUnsignedShortInteger id, Se
 {
 	lock_type lock(p_mutex);
 	if (p_remote_addr.get() != 0) {
-		ROS_DEBUG_NAMED("VisualSensorClient", "send new configuration to %s for sensor id %d with request id %d", p_remote_addr.str().c_str(), (int)id , (int)p_request_id);
+		RCLCPP_DEBUG(logger, "send new configuration to %s for sensor id %d with request id %d", p_remote_addr.str().c_str(), (int)id , (int)p_request_id);
 		SetVisualSensorConfiguration response;
 		response.getBody()->getVisualSensorConfigurationSequence()->getRequestIdRec()->setRequestID(p_request_id);
 		p_request_id++;
@@ -255,12 +265,12 @@ void VisualSensorClient_ReceiveFSM::p_state_changed(jUnsignedShortInteger id, Se
 void VisualSensorClient_ReceiveFSM::p_pub_power_states()
 {
 	lock_type lock(p_mutex);
-	diagnostic_msgs::DiagnosticStatus ros_msg;
-	ros_msg.level = diagnostic_msgs::DiagnosticStatus::OK;
-	std::map<jUnsignedShortInteger, boost::shared_ptr<iop::VisualSensorClient> >::iterator it;
+	auto ros_msg = diagnostic_msgs::msg::DiagnosticStatus();
+	ros_msg.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+	std::map<jUnsignedShortInteger, std::shared_ptr<iop::VisualSensorClient> >::iterator it;
 	for (it = p_sensors.begin(); it != p_sensors.end(); ++it) {
 		if (it->second->is_switchable()) {
-			diagnostic_msgs::KeyValue entry;
+			auto entry = diagnostic_msgs::msg::KeyValue();
 			entry.key = it->second->get_name();
 			if (it->second->get_switch_state()) {
 				entry.value = "ON";
@@ -270,7 +280,7 @@ void VisualSensorClient_ReceiveFSM::p_pub_power_states()
 			ros_msg.values.push_back(entry);
 		}
 	}
-	p_pub_diagnostic.publish(ros_msg);
+	p_pub_diagnostic->publish(ros_msg);
 }
 
-};
+}

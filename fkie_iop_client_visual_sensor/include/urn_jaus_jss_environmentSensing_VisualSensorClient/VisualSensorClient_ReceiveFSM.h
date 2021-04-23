@@ -19,14 +19,15 @@
 
 
 #include "VisualSensorClient_ReceiveFSM_sm.h"
-
-#include <boost/thread/recursive_mutex.hpp>
-#include <ros/ros.h>
-#include <diagnostic_msgs/DiagnosticStatus.h>
-#include <std_msgs/UInt16.h>
+#include <rclcpp/rclcpp.hpp>
+#include <fkie_iop_component/iop_component.hpp>
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
+#include <std_msgs/msg/u_int16.hpp>
 #include <fkie_iop_ocu_slavelib/SlaveHandlerInterface.h>
 #include <fkie_iop_events/EventHandlerInterface.h>
 #include <fkie_iop_client_visual_sensor/VisualSensorClient.h>
+#include <fkie_iop_msgs/msg/visual_sensor_names.hpp>
+
 
 namespace urn_jaus_jss_environmentSensing_VisualSensorClient
 {
@@ -34,11 +35,12 @@ namespace urn_jaus_jss_environmentSensing_VisualSensorClient
 class DllExport VisualSensorClient_ReceiveFSM : public JTS::StateMachine, public iop::ocu::SlaveHandlerInterface, public iop::EventHandlerInterface
 {
 public:
-	VisualSensorClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM);
+	VisualSensorClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM);
 	virtual ~VisualSensorClient_ReceiveFSM();
 
 	/// Handle notifications on parent state changes
 	virtual void setupNotifications();
+	virtual void setupIopConfiguration();
 
 	/// Action Methods
 	virtual void handleConfirmSensorConfigurationAction(ConfirmSensorConfiguration msg, Receive::Body::ReceiveRec transportData);
@@ -64,37 +66,39 @@ public:
 
 protected:
 
-    /// References to parent FSMs
-	urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM;
-	urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
+	/// References to parent FSMs
 	urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
+	urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
+	urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM;
 
-	typedef boost::recursive_mutex mutex_type;
-	typedef boost::unique_lock<mutex_type> lock_type;
+	std::shared_ptr<iop::Component> cmp;
+	rclcpp::Logger logger;
+
+	typedef std::recursive_mutex mutex_type;
+	typedef std::unique_lock<mutex_type> lock_type;
 	mutable mutex_type p_mutex;
 
 	JausAddress p_remote_addr;
-	ros::NodeHandle p_nh;
 	bool p_has_access;
 	int p_query_state;
 	bool p_by_query;
 	double p_hz;
-	unsigned char p_request_id;
-	ros::Timer p_query_timer;
-	ros::Publisher p_pub_visual_sensor_names;
+	uint8_t p_request_id;
+	iop::Timer p_query_timer;
+	rclcpp::Publisher<fkie_iop_msgs::msg::VisualSensorNames>::SharedPtr p_pub_visual_sensor_names;
+	rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticStatus>::SharedPtr p_pub_diagnostic;
 	QueryVisualSensorCapabilities p_query_caps;
 	QuerySensorGeometricProperties p_query_geo;
 	QueryVisualSensorConfiguration p_query_cfgs;
-	std::map<unsigned int, std::map<unsigned short, std::string> > p_sensor_names;  // JausAddress, sensor ID, name
-	std::map<jUnsignedShortInteger, boost::shared_ptr<iop::VisualSensorClient> > p_sensors;
-	ros::Publisher p_pub_diagnostic;
+	std::map<unsigned int, std::map<uint16_t, std::string> > p_sensor_names;  // JausAddress, sensor ID, name
+	std::map<uint16_t, std::shared_ptr<iop::VisualSensorClient> > p_sensors;
 
-	void pQueryCallback(const ros::TimerEvent& event);
-	void p_state_changed(jUnsignedShortInteger id, SetConfigurationRec cfg);
+	void pQueryCallback();
+	void p_state_changed(uint16_t id, SetConfigurationRec cfg);
         void p_pub_power_states();
 
 };
 
-};
+}
 
 #endif // VISUALSENSORCLIENT_RECEIVEFSM_H

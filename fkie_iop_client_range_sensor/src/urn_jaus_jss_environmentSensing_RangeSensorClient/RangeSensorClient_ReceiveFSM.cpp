@@ -22,9 +22,8 @@ along with this program; or you can read the full license at
 
 
 #include "urn_jaus_jss_environmentSensing_RangeSensorClient/RangeSensorClient_ReceiveFSM.h"
-#include <fkie_iop_builder/timestamp.h>
+#include <fkie_iop_component/iop_config.hpp>
 #include <fkie_iop_ocu_slavelib/Slave.h>
-#include <fkie_iop_component/iop_config.h>
 
 
 using namespace JTS;
@@ -35,7 +34,10 @@ namespace urn_jaus_jss_environmentSensing_RangeSensorClient
 
 
 
-RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM)
+RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM)
+: logger(cmp->get_logger().get_child("RangeSensorClient")),
+  p_query_timer(std::chrono::milliseconds(200), std::bind(&RangeSensorClient_ReceiveFSM::pQueryCallback, this), false),
+  p_tf_broadcaster(cmp)
 {
 
 	/*
@@ -45,9 +47,10 @@ RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Tra
 	 */
 	context = new RangeSensorClient_ReceiveFSMContext(*this);
 
-	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
-	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
+	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
+	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
+	this->cmp = cmp;
 	p_has_access = false;
 	p_query_state = 0;
 	p_by_query = false;
@@ -85,11 +88,25 @@ void RangeSensorClient_ReceiveFSM::setupNotifications()
 	pAccessControlClient_ReceiveFSM->registerNotification("Receiving", ieHandler, "InternalStateChange_To_RangeSensorClient_ReceiveFSM_Receiving_Ready", "AccessControlClient_ReceiveFSM");
 	registerNotification("Receiving_Ready", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving_Ready", "RangeSensorClient_ReceiveFSM");
 	registerNotification("Receiving", pAccessControlClient_ReceiveFSM->getHandler(), "InternalStateChange_To_AccessControlClient_ReceiveFSM_Receiving", "RangeSensorClient_ReceiveFSM");
-	iop::Config cfg("~RangeSensorClient");
-	cfg.param("hz", p_hz, p_hz, false, false);
+
+}
+
+
+void RangeSensorClient_ReceiveFSM::setupIopConfiguration()
+{
+	iop::Config cfg(cmp, "RangeSensorClient");
+	cfg.declare_param<std::string>("tf_frame_robot", p_tf_frame_robot, true,
+		rcl_interfaces::msg::ParameterType::PARAMETER_STRING,
+		"TF frame id of the robot.",
+		"Default: 'base_link'");
+	cfg.declare_param<double>("hz", p_hz, true,
+		rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE,
+		"Sets how often the reports are requested. If use_queries is True hz must be greather then 0. In this case each time a Query message is sent to get a report. If use_queries is False an event is created to get Reports. In this case 0 disables the rate and an event of type on_change will be created.",
+		"Default: 10.0");
 	cfg.param("tf_frame_robot", p_tf_frame_robot, std::string("base_link"));
-	Slave &slave = Slave::get_instance(*(jausRouter->getJausAddress()));
-	slave.add_supported_service(*this, "urn:jaus:jss:environmentSensing:RangeSensor", 1, 0);
+	cfg.param("hz", p_hz, p_hz, false);
+	auto slave = Slave::get_instance(cmp);
+	slave->add_supported_service(*this, "urn:jaus:jss:environmentSensing:RangeSensor", 1, 0);
 }
 
 void RangeSensorClient_ReceiveFSM::control_allowed(std::string service_uri, JausAddress component, unsigned char authority)
@@ -98,7 +115,7 @@ void RangeSensorClient_ReceiveFSM::control_allowed(std::string service_uri, Jaus
 		p_remote_addr = component;
 		p_has_access = true;
 	} else {
-		ROS_WARN_STREAM("[RangeSensorClient] unexpected control allowed for " << service_uri << " received, ignored!");
+		RCLCPP_WARN(logger, "unexpected control allowed for %s received, ignored!", service_uri.c_str());
 	}
 }
 
@@ -115,29 +132,30 @@ void RangeSensorClient_ReceiveFSM::access_deactivated(std::string service_uri, J
 
 void RangeSensorClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
 {
-	ROS_DEBUG_NAMED("RangeSensorClient", "create EVENT for range sensor %s", component.str().c_str());
+	RCLCPP_DEBUG(logger, "create EVENT for range sensor %s", component.str().c_str());
 	p_by_query = by_query;
 	sendJausMessage(p_query_cfg, component);
-	p_query_timer = p_nh.createTimer(ros::Duration(3), &RangeSensorClient_ReceiveFSM::pQueryCallback, this);
+	p_query_timer.set_rate(0.33);
+	p_query_timer.start();
 }
 
 void RangeSensorClient_ReceiveFSM::cancel_events(std::string service_uri, JausAddress component, bool by_query)
 {
 	p_query_timer.stop();
 	if (!by_query) {
-		ROS_INFO_NAMED("RangeSensorClient", "cancel EVENT for range sensor data by %s", component.str().c_str());
+		RCLCPP_INFO(logger, "cancel EVENT for range sensor data by %s", component.str().c_str());
 		pEventsClient_ReceiveFSM->cancel_event(*this, component, p_query_sensor_data);
 	}
 	p_query_state = 0;
 }
 
-void RangeSensorClient_ReceiveFSM::pQueryCallback(const ros::TimerEvent& event)
+void RangeSensorClient_ReceiveFSM::pQueryCallback()
 {
 	if (p_remote_addr.get() != 0) {
 		if (p_query_state == 0) {
 			sendJausMessage(p_query_cfg, p_remote_addr);
 		} else if (p_query_state == 1) {
-			ROS_DEBUG_NAMED("RangeSensorClient", "send query geometrics and capabilities for range sensor to %s", p_remote_addr.str().c_str());
+			RCLCPP_DEBUG(logger, "send query geometrics and capabilities for range sensor to %s", p_remote_addr.str().c_str());
 			sendJausMessage(p_query_geo, p_remote_addr);
 			sendJausMessage(p_query_cap, p_remote_addr);
 		} else {
@@ -159,7 +177,7 @@ void RangeSensorClient_ReceiveFSM::event(JausAddress sender, unsigned short quer
 
 void RangeSensorClient_ReceiveFSM::handleConfirmSensorConfigurationAction(ConfirmSensorConfiguration msg, Receive::Body::ReceiveRec transportData)
 {
-	ROS_WARN_NAMED("RangeSensorClient", "handleConfirmSensorConfigurationAction not implemented!");
+	RCLCPP_WARN(logger, "handleConfirmSensorConfigurationAction not implemented!");
 }
 
 void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(ReportRangeSensorCapabilities msg, Receive::Body::ReceiveRec transportData)
@@ -169,14 +187,15 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 	uint8_t node_id = transportData.getSrcNodeID();
 	uint8_t component_id = transportData.getSrcComponentID();
 	JausAddress sender(subsystem_id, node_id, component_id);
-	ROS_INFO_NAMED("RangeSensorClient", "received capabilities for range data from %s", sender.str().c_str());
+	RCLCPP_INFO(logger, "received capabilities for range data from %s", sender.str().c_str());
 	// create for each sensor a publisher
+	iop::Config cfg(cmp, "RangeSensorClient");
 	for (unsigned int i = 0; i < msg.getBody()->getRangeSensorCapabilitiesList()->getNumberOfElements(); i++) {
 		ReportRangeSensorCapabilities::Body::RangeSensorCapabilitiesList::RangeSensorCapabilitiesRec *item = msg.getBody()->getRangeSensorCapabilitiesList()->getElement(i);
 		unsigned int id = item->getSensorID();
 		if (p_publisher_map.find(id) == p_publisher_map.end()) {
-			p_publisher_map[id] = p_nh.advertise<sensor_msgs::LaserScan>(item->getSensorName(), 1, false);
-			p_sensor_names[id] = ros::names::append(ros::this_node::getNamespace(), item->getSensorName());
+			p_publisher_map[id] = cfg.create_publisher<sensor_msgs::msg::LaserScan>(item->getSensorName(), 1);
+			p_sensor_names[id] = p_publisher_map[id]->get_topic_name();
 			p_sensor_max_range[id] = item->getMaximumRange();
 			p_sensor_min_range[id] = item->getMinimumRange();
 			try {
@@ -191,13 +210,14 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 		if (p_by_query) {
 			p_query_timer.stop();
 			if (p_hz > 0) {
-				ROS_INFO_NAMED("RangeSensorClient", "create QUERY timer to get range data from %s", p_remote_addr.str().c_str());
-				p_query_timer = p_nh.createTimer(ros::Duration(1.0 / p_hz), &RangeSensorClient_ReceiveFSM::pQueryCallback, this);
+				RCLCPP_INFO(logger, "create QUERY timer to get range data from %s", p_remote_addr.str().c_str());
+				p_query_timer.set_rate(p_hz);
+				p_query_timer.start();
 			} else {
-				ROS_WARN_NAMED("RangeSensorClient", "invalid hz %.2f for QUERY timer to get range data from %s", p_hz, p_remote_addr.str().c_str());
+				RCLCPP_WARN(logger, "invalid hz %.2f for QUERY timer to get range data from %s", p_hz, p_remote_addr.str().c_str());
 			}
 		} else {
-			ROS_INFO_NAMED("RangeSensorClient", "create EVENT to get range data from %s", p_remote_addr.str().c_str());
+			RCLCPP_INFO(logger, "create EVENT to get range data from %s", p_remote_addr.str().c_str());
 			pEventsClient_ReceiveFSM->create_event(*this, p_remote_addr, p_query_sensor_data, p_hz);
 		}
 	}
@@ -206,7 +226,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCompressedDataAction(ReportRangeSensorCompressedData msg, Receive::Body::ReceiveRec transportData)
 {
 	/// Insert User Code HERE
-	ROS_WARN("RangeSensorClient: handleReportRangeSensorCompressedDataAction not implemented!");
+	RCLCPP_WARN(logger, "handleReportRangeSensorCompressedDataAction not implemented!");
 }
 
 void RangeSensorClient_ReceiveFSM::handleReportRangeSensorConfigurationAction(ReportRangeSensorConfiguration msg, Receive::Body::ReceiveRec transportData)
@@ -215,8 +235,8 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorConfigurationAction(Re
 	uint8_t node_id = transportData.getSrcNodeID();
 	uint8_t component_id = transportData.getSrcComponentID();
 	JausAddress sender(subsystem_id, node_id, component_id);
-	ROS_DEBUG_NAMED("RangeSensorClient", "ReportRangeSensorConfiguration, count sensors: %d", msg.getBody()->getRangeSensorConfigurationList()->getNumberOfElements());
-	ROS_INFO_NAMED("RangeSensorClient", "request GeometricProperties and SensorCapabilities from %s", sender.str().c_str());
+	RCLCPP_DEBUG(logger, "ReportRangeSensorConfiguration, count sensors: %d", msg.getBody()->getRangeSensorConfigurationList()->getNumberOfElements());
+	RCLCPP_INFO(logger, "request GeometricProperties and SensorCapabilities from %s", sender.str().c_str());
 	p_query_state = 1;
 	sendJausMessage(p_query_geo, sender);
 	sendJausMessage(p_query_cap, sender);
@@ -238,9 +258,9 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 				std::string sensor_id = p_sensor_names[id];
 				// get timestamp
 				ReportRangeSensorData::Body::RangeSensorDataList::RangeSensorDataVariant::RangeSensorDataSeq::RangeSensorDataRec::TimeStamp *ts = datarec->getTimeStamp();
-				iop::Timestamp stamp(ts->getDay(), ts->getHour(), ts->getMinutes(), ts->getSeconds(), ts->getMilliseconds());
+				iop::Timestamp stamp = cmp->from_iop(ts->getDay(), ts->getHour(), ts->getMinutes(), ts->getSeconds(), ts->getMilliseconds());
 				try {
-					geometry_msgs::TransformStamped& tf_msg  = p_tf_map.at(id);
+					geometry_msgs::msg::TransformStamped& tf_msg  = p_tf_map.at(id);
 					if (! tf_msg.child_frame_id.empty()) {
 						tf_msg.header.stamp = stamp.ros_time;
 						if (tf_msg.header.frame_id.empty()) {
@@ -249,9 +269,9 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 						p_tf_broadcaster.sendTransform(tf_msg);
 					}
 				} catch (std::exception &e) {
-					ROS_WARN("RangeSensorClient: can not publish tf for sensor %s: %s", sensor_id.c_str(), e.what());
+					RCLCPP_WARN(logger, "can not publish tf for sensor %s: %s", sensor_id.c_str(), e.what());
 				}
-				sensor_msgs::LaserScan rosmsg;
+				auto rosmsg = sensor_msgs::msg::LaserScan();
 				rosmsg.header.frame_id = sensor_id;
 				rosmsg.header.stamp = stamp.ros_time;
 				// get points
@@ -280,23 +300,23 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 				}
 				rosmsg.range_max = p_sensor_max_range[id];
 				rosmsg.range_min = p_sensor_min_range[id];
-				p_publisher_map[id].publish(rosmsg);
+				p_publisher_map[id]->publish(rosmsg);
 			} else {
 				// no capabilities received for this sensor id
-				ROS_WARN("RangeSensorClient: no capabilities received for this sensor id: %d", id);
+				RCLCPP_WARN(logger, "no capabilities received for this sensor id: %d", id);
 			}
 		} else {
 		  // it is an error
-		  ROS_WARN("RangeSensorClient: error rec for ID: %d received, code: %d, msg: %s", itemvar->getRangeSensorDataErrorRec()->getSensorID(), itemvar->getRangeSensorDataErrorRec()->getDataErrorCode(), itemvar->getRangeSensorDataErrorRec()->getErrorMessage().c_str());
+		  RCLCPP_WARN(logger, "error rec for ID: %d received, code: %d, msg: %s", itemvar->getRangeSensorDataErrorRec()->getSensorID(), itemvar->getRangeSensorDataErrorRec()->getDataErrorCode(), itemvar->getRangeSensorDataErrorRec()->getErrorMessage().c_str());
 		}
 	}
-	ROS_DEBUG_NAMED("RangeSensorClient", "ReportRangeSensorData, count sensors: %d", msg.getBody()->getRangeSensorDataList()->getNumberOfElements());
+	RCLCPP_DEBUG(logger, "ReportRangeSensorData, count sensors: %d", msg.getBody()->getRangeSensorDataList()->getNumberOfElements());
 }
 
 void RangeSensorClient_ReceiveFSM::handleReportSensorGeometricPropertiesAction(ReportSensorGeometricProperties msg, Receive::Body::ReceiveRec transportData)
 {
 	JausAddress sender = transportData.getAddress();
-	ROS_DEBUG_NAMED("RangeSensorClient", "ReportSensorGeometricProperties, count sensors: %d", msg.getBody()->getGeometricPropertiesList()->getNumberOfElements());
+	RCLCPP_DEBUG(logger, "ReportSensorGeometricProperties, count sensors: %d", msg.getBody()->getGeometricPropertiesList()->getNumberOfElements());
 	// create tf data for all valid sensors positions
 	for (unsigned int i = 0; i < msg.getBody()->getGeometricPropertiesList()->getNumberOfElements(); i++) {
 		try {
@@ -304,7 +324,7 @@ void RangeSensorClient_ReceiveFSM::handleReportSensorGeometricPropertiesAction(R
 			jUnsignedShortInteger sensor_id = element->getSensorIdRec()->getSensorID();
 			// create and publish TF message
 			ReportSensorGeometricProperties::Body::GeometricPropertiesList::GeometricPropertiesSequence::GeometricPropertiesVariant::StaticGeometricPropertiesRec *staticgeo = element->getGeometricPropertiesVariant()->getStaticGeometricPropertiesRec();
-			geometry_msgs::TransformStamped msg;
+			auto msg = geometry_msgs::msg::TransformStamped();
 			msg.transform.translation.x = staticgeo->getSensorPosition()->getPositionVectorElement(0);
 			msg.transform.translation.y = staticgeo->getSensorPosition()->getPositionVectorElement(1);
 			msg.transform.translation.z = staticgeo->getSensorPosition()->getPositionVectorElement(2);
@@ -312,13 +332,13 @@ void RangeSensorClient_ReceiveFSM::handleReportSensorGeometricPropertiesAction(R
 			msg.transform.rotation.y = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(1);
 			msg.transform.rotation.z = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(2);
 			msg.transform.rotation.w = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(3);
-			msg.header.stamp = ros::Time::now();
+			msg.header.stamp = cmp->now();
 			msg.header.frame_id = this->p_tf_frame_robot;
 			msg.child_frame_id = p_sensor_names[sensor_id];
-			ROS_DEBUG_NAMED("RangeSensorClient", "initialized tf %s -> %s", this->p_tf_frame_robot.c_str(), p_sensor_names[sensor_id].c_str());
+			RCLCPP_DEBUG(logger, "initialized tf %s -> %s", this->p_tf_frame_robot.c_str(), p_sensor_names[sensor_id].c_str());
 			p_tf_map[sensor_id] = msg;
 		} catch (std::exception &e) {
-			ROS_WARN("RangeSensorClient: can not create tf for sensor: %s", e.what());
+			RCLCPP_WARN(logger, "can not create tf for sensor: %s", e.what());
 		}
 	}
 }
@@ -327,4 +347,4 @@ void RangeSensorClient_ReceiveFSM::handleReportSensorGeometricPropertiesAction(R
 
 
 
-};
+}

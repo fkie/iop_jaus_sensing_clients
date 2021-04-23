@@ -40,16 +40,15 @@ along with this program; or you can read the full license at
 #include "urn_jaus_jss_core_AccessControlClient/AccessControlClient_ReceiveFSM.h"
 
 
-#include "ros/ros.h"
-#include <sensor_msgs/LaserScan.h>
+#include "RangeSensorClient_ReceiveFSM_sm.h"
+#include <rclcpp/rclcpp.hpp>
+#include <fkie_iop_component/iop_component.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <tf2_ros/transform_broadcaster.h>
-#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <vector>
-#include <boost/thread/recursive_mutex.hpp>
 #include <fkie_iop_ocu_slavelib/SlaveHandlerInterface.h>
 #include <fkie_iop_events/EventHandlerInterface.h>
-
-#include "RangeSensorClient_ReceiveFSM_sm.h"
 
 namespace urn_jaus_jss_environmentSensing_RangeSensorClient
 {
@@ -57,11 +56,12 @@ namespace urn_jaus_jss_environmentSensing_RangeSensorClient
 class DllExport RangeSensorClient_ReceiveFSM : public JTS::StateMachine, public iop::ocu::SlaveHandlerInterface, public iop::EventHandlerInterface
 {
 public:
-	RangeSensorClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM);
+	RangeSensorClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM);
 	virtual ~RangeSensorClient_ReceiveFSM();
 
 	/// Handle notifications on parent state changes
 	virtual void setupNotifications();
+	virtual void setupIopConfiguration();
 
 	/// Action Methods
 	virtual void handleConfirmSensorConfigurationAction(ConfirmSensorConfiguration msg, Receive::Body::ReceiveRec transportData);
@@ -87,10 +87,13 @@ public:
 
 protected:
 
-    /// References to parent FSMs
-	urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM;
-	urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
+	/// References to parent FSMs
 	urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
+	urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
+	urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM;
+
+	std::shared_ptr<iop::Component> cmp;
+	rclcpp::Logger logger;
 
 	QueryRangeSensorConfiguration p_query_cfg;
 	QueryRangeSensorData p_query_sensor_data;
@@ -98,12 +101,11 @@ protected:
 	QueryRangeSensorCapabilities p_query_cap;
 
 
-	ros::NodeHandle p_nh;
-	ros::Timer p_query_timer;
+	iop::Timer p_query_timer;
 	std::string p_tf_frame_robot;
 	tf2_ros::TransformBroadcaster p_tf_broadcaster;
-	std::map<unsigned int, geometry_msgs::TransformStamped> p_tf_map;
-	std::map<unsigned int, ros::Publisher> p_publisher_map;
+	std::map<unsigned int, geometry_msgs::msg::TransformStamped> p_tf_map;
+	std::map<unsigned int, rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr > p_publisher_map;
 	std::map<unsigned int, std::string> p_sensor_names;
 	std::map<unsigned int, int> p_sensor_max_range;
 	std::map<unsigned int, int> p_sensor_min_range;
@@ -113,9 +115,9 @@ protected:
 
 	JausAddress p_remote_addr;
 	bool p_has_access;
-	void pQueryCallback(const ros::TimerEvent& event);
+	void pQueryCallback();
 };
 
-};
+}
 
 #endif // RANGESENSORCLIENT_RECEIVEFSM_H

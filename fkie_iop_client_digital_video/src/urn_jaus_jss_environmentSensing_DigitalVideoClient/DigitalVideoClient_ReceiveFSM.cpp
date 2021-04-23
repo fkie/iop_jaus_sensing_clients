@@ -21,10 +21,9 @@ along with this program; or you can read the full license at
 /** \author Alexander Tiderko */
 
 
-#include <fkie_iop_ocu_slavelib/Slave.h>
-#include <fkie_iop_component/iop_config.h>
-
 #include "urn_jaus_jss_environmentSensing_DigitalVideoClient/DigitalVideoClient_ReceiveFSM.h"
+#include <fkie_iop_component/iop_config.hpp>
+#include <fkie_iop_ocu_slavelib/Slave.h>
 
 
 
@@ -37,7 +36,8 @@ namespace urn_jaus_jss_environmentSensing_DigitalVideoClient
 
 
 
-DigitalVideoClient_ReceiveFSM::DigitalVideoClient_ReceiveFSM(urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClient_ReceiveFSM* pVisualSensorClient_ReceiveFSM)
+DigitalVideoClient_ReceiveFSM::DigitalVideoClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClient_ReceiveFSM* pVisualSensorClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM)
+: logger(cmp->get_logger().get_child("DigitalVideoClient"))
 {
 
 	/*
@@ -47,10 +47,11 @@ DigitalVideoClient_ReceiveFSM::DigitalVideoClient_ReceiveFSM(urn_jaus_jss_core_T
 	 */
 	context = new DigitalVideoClient_ReceiveFSMContext(*this);
 
-	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
-	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
-	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
 	this->pVisualSensorClient_ReceiveFSM = pVisualSensorClient_ReceiveFSM;
+	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
+	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
+	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
+	this->cmp = cmp;
 	p_current_resource_id = 65535;
 	p_has_access = false;
 }
@@ -68,10 +69,16 @@ void DigitalVideoClient_ReceiveFSM::setupNotifications()
 	pVisualSensorClient_ReceiveFSM->registerNotification("Receiving", ieHandler, "InternalStateChange_To_DigitalVideoClient_ReceiveFSM_Receiving_Ready", "VisualSensorClient_ReceiveFSM");
 	registerNotification("Receiving_Ready", pVisualSensorClient_ReceiveFSM->getHandler(), "InternalStateChange_To_VisualSensorClient_ReceiveFSM_Receiving_Ready", "DigitalVideoClient_ReceiveFSM");
 	registerNotification("Receiving", pVisualSensorClient_ReceiveFSM->getHandler(), "InternalStateChange_To_VisualSensorClient_ReceiveFSM_Receiving", "DigitalVideoClient_ReceiveFSM");
-	iop::Config cfg("~DigitalVideoClient");
-	p_sub_cur_dv_id = cfg.subscribe("dv_resource_id", 10, &DigitalVideoClient_ReceiveFSM::p_dandle_current_ressource_id, this);
-	ocu::Slave &slave = ocu::Slave::get_instance(*(jausRouter->getJausAddress()));
-	slave.add_supported_service(*this, "urn:jaus:jss:environmentSensing:DigitalVideo", 1, 0);
+
+}
+
+
+void DigitalVideoClient_ReceiveFSM::setupIopConfiguration()
+{
+	iop::Config cfg(cmp, "DigitalVideoClient");
+	p_sub_cur_dv_id = cfg.create_subscription<std_msgs::msg::UInt16>("dv_resource_id", 10, std::bind(&DigitalVideoClient_ReceiveFSM::p_dandle_current_ressource_id, this, std::placeholders::_1));
+	auto slave = ocu::Slave::get_instance(cmp);
+	slave->add_supported_service(*this, "urn:jaus:jss:environmentSensing:DigitalVideo", 1, 0);
 
 }
 
@@ -80,16 +87,16 @@ void DigitalVideoClient_ReceiveFSM::control_allowed(std::string service_uri, Jau
 	if (service_uri.compare("urn:jaus:jss:environmentSensing:DigitalVideo") == 0) {
 		p_has_access = true;
 		p_remote_addr = component;
-		ROS_INFO_NAMED("DigitalVideoClient_ReceiveFSM", "access granted for %d.%d.%d",
+		RCLCPP_INFO(logger, "access granted for %d.%d.%d",
 				component.getSubsystemID(), component.getNodeID(), component.getComponentID());
 	} else {
-		ROS_WARN_STREAM("[DigitalVideoClient_ReceiveFSM] unexpected control allowed for " << service_uri << " received, ignored!");
+		RCLCPP_WARN(logger, "unexpected control allowed for %s received, ignored!", service_uri.c_str());
 	}
 }
 
 void DigitalVideoClient_ReceiveFSM::enable_monitoring_only(std::string service_uri, JausAddress component)
 {
-	ROS_INFO_NAMED("DigitalVideoClient_ReceiveFSM", "monitor enabled for %d.%d.%d",
+	RCLCPP_INFO(logger, "monitor enabled for %d.%d.%d",
 			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
 }
 
@@ -97,7 +104,7 @@ void DigitalVideoClient_ReceiveFSM::access_deactivated(std::string service_uri, 
 {
 	p_has_access = false;
 	p_remote_addr = JausAddress(0);
-	ROS_INFO_NAMED("DigitalVideoClient_ReceiveFSM", "access released for %d.%d.%d",
+	RCLCPP_INFO(logger, "access released for %d.%d.%d",
 			component.getSubsystemID(), component.getNodeID(), component.getComponentID());
 }
 
@@ -122,19 +129,19 @@ void DigitalVideoClient_ReceiveFSM::handleReportDigitalVideoSensorConfigurationA
 	printf("[DigitalVideoClient] handleReportDigitalVideoSensorConfigurationAction not implemented\n");
 }
 
-void DigitalVideoClient_ReceiveFSM::p_dandle_current_ressource_id(const std_msgs::UInt16::ConstPtr msg)
+void DigitalVideoClient_ReceiveFSM::p_dandle_current_ressource_id(const std_msgs::msg::UInt16::SharedPtr msg)
 {
 	if (p_remote_addr.get() != 0) {
 		if (msg->data == 65535 and p_current_resource_id != 65535) {
 			ControlDigitalVideoSensorStream cmd;
-			ROS_INFO_NAMED("DigitalVideoClient_ReceiveFSM", "forward STOP for resource id %d to %d.%d.%d",
+			RCLCPP_INFO(logger, "forward STOP for resource id %d to %d.%d.%d",
 					p_current_resource_id, p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
 			cmd.getBody()->getControlDigitalVideoSensorStreamRec()->setSensorID(p_current_resource_id);
 			cmd.getBody()->getControlDigitalVideoSensorStreamRec()->setStreamState(2);
 			sendJausMessage(cmd, p_remote_addr);
 		} else {
 			ControlDigitalVideoSensorStream cmd;
-			ROS_INFO_NAMED("DigitalVideoClient_ReceiveFSM", "forward PLAY for resource id %d to %d.%d.%d",
+			RCLCPP_INFO(logger, "forward PLAY for resource id %d to %d.%d.%d",
 					msg->data, p_remote_addr.getSubsystemID(), p_remote_addr.getNodeID(), p_remote_addr.getComponentID());
 			cmd.getBody()->getControlDigitalVideoSensorStreamRec()->setSensorID(msg->data);
 			cmd.getBody()->getControlDigitalVideoSensorStreamRec()->setStreamState(0);
@@ -147,4 +154,4 @@ void DigitalVideoClient_ReceiveFSM::p_dandle_current_ressource_id(const std_msgs
 
 
 
-};
+}
