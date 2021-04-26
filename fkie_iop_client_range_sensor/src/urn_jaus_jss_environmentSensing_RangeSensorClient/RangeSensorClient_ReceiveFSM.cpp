@@ -23,7 +23,6 @@ along with this program; or you can read the full license at
 
 #include "urn_jaus_jss_environmentSensing_RangeSensorClient/RangeSensorClient_ReceiveFSM.h"
 #include <fkie_iop_component/iop_config.hpp>
-#include <fkie_iop_ocu_slavelib/Slave.h>
 
 
 using namespace JTS;
@@ -35,8 +34,8 @@ namespace urn_jaus_jss_environmentSensing_RangeSensorClient
 
 
 RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM)
-: logger(cmp->get_logger().get_child("RangeSensorClient")),
-  p_query_timer(std::chrono::milliseconds(200), std::bind(&RangeSensorClient_ReceiveFSM::pQueryCallback, this), false),
+: SlaveHandlerInterface(cmp, "RangeSensorClient", 2.0),
+  logger(cmp->get_logger().get_child("RangeSensorClient")),
   p_tf_broadcaster(cmp)
 {
 
@@ -51,9 +50,7 @@ RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(std::shared_ptr<iop::
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
 	this->cmp = cmp;
-	p_has_access = false;
 	p_query_state = 0;
-	p_by_query = false;
 	p_hz = 5.0;
 	QueryRangeSensorData::Body::QueryRangeSensorDataList::QueryRangeSensorDataRec drec;
 	drec.setSensorID(0); // 0 is specified to get all sensors
@@ -105,63 +102,46 @@ void RangeSensorClient_ReceiveFSM::setupIopConfiguration()
 		"Default: 10.0");
 	cfg.param("tf_frame_robot", p_tf_frame_robot, std::string("base_link"));
 	cfg.param("hz", p_hz, p_hz, false);
-	auto slave = Slave::get_instance(cmp);
-	slave->add_supported_service(*this, "urn:jaus:jss:environmentSensing:RangeSensor", 1, 0);
+	// initialize the control layer, which handles the access control staff
+	this->set_rate(p_hz);
+	this->set_supported_service(*this, "urn:jaus:jss:environmentSensing:RangeSensor", 1, 0);
+	this->set_event_name("range sensor capabilities");
+	this->set_query_before_event(true, 1.0);
 }
 
-void RangeSensorClient_ReceiveFSM::control_allowed(std::string service_uri, JausAddress component, unsigned char authority)
+void RangeSensorClient_ReceiveFSM::register_events(JausAddress remote_addr, double hz)
 {
-	if (service_uri.compare("urn:jaus:jss:environmentSensing:RangeSensor") == 0) {
-		p_remote_addr = component;
-		p_has_access = true;
+	pEventsClient_ReceiveFSM->create_event(*this, remote_addr, p_query_sensor_data, p_hz);
+}
+
+void RangeSensorClient_ReceiveFSM::unregister_events(JausAddress remote_addr)
+{
+	pEventsClient_ReceiveFSM->cancel_event(*this, remote_addr, p_query_sensor_data);
+	stop_query(remote_addr);
+}
+
+void RangeSensorClient_ReceiveFSM::send_query(JausAddress remote_addr)
+{
+	sendJausMessage(p_query_sensor_data, remote_addr);
+	if (p_query_state == 0) {
+		sendJausMessage(p_query_cfg, remote_addr);
+	} else if (p_query_state == 1) {
+		RCLCPP_DEBUG(logger, "send query geometrics and capabilities for range sensor to %s", remote_addr.str().c_str());
+		sendJausMessage(p_query_geo, remote_addr);
+		sendJausMessage(p_query_cap, remote_addr);
+		p_query_state = 2;
+		this->set_event_name("range data");
+		this->set_query_before_event(false, 1.0);
 	} else {
-		RCLCPP_WARN(logger, "unexpected control allowed for %s received, ignored!", service_uri.c_str());
+		sendJausMessage(p_query_sensor_data, remote_addr);
 	}
 }
 
-void RangeSensorClient_ReceiveFSM::enable_monitoring_only(std::string service_uri, JausAddress component)
+void RangeSensorClient_ReceiveFSM::stop_query(JausAddress remote_addr)
 {
-	p_remote_addr = component;
-}
-
-void RangeSensorClient_ReceiveFSM::access_deactivated(std::string service_uri, JausAddress component)
-{
-	p_has_access = false;
-	p_remote_addr = JausAddress(0);
-}
-
-void RangeSensorClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
-{
-	RCLCPP_DEBUG(logger, "create EVENT for range sensor %s", component.str().c_str());
-	p_by_query = by_query;
-	sendJausMessage(p_query_cfg, component);
-	p_query_timer.set_rate(0.33);
-	p_query_timer.start();
-}
-
-void RangeSensorClient_ReceiveFSM::cancel_events(std::string service_uri, JausAddress component, bool by_query)
-{
-	p_query_timer.stop();
-	if (!by_query) {
-		RCLCPP_INFO(logger, "cancel EVENT for range sensor data by %s", component.str().c_str());
-		pEventsClient_ReceiveFSM->cancel_event(*this, component, p_query_sensor_data);
-	}
 	p_query_state = 0;
-}
-
-void RangeSensorClient_ReceiveFSM::pQueryCallback()
-{
-	if (p_remote_addr.get() != 0) {
-		if (p_query_state == 0) {
-			sendJausMessage(p_query_cfg, p_remote_addr);
-		} else if (p_query_state == 1) {
-			RCLCPP_DEBUG(logger, "send query geometrics and capabilities for range sensor to %s", p_remote_addr.str().c_str());
-			sendJausMessage(p_query_geo, p_remote_addr);
-			sendJausMessage(p_query_cap, p_remote_addr);
-		} else {
-			sendJausMessage(p_query_sensor_data, p_remote_addr);
-		}
-	}
+	this->set_event_name("range sensor capabilities");
+	this->set_query_before_event(true, 1.0);
 }
 
 void RangeSensorClient_ReceiveFSM::event(JausAddress sender, unsigned short query_msg_id, unsigned int reportlen, const unsigned char* reportdata)
@@ -204,23 +184,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 			}
 		}
 	}
-	p_query_state = 2;
-	// create event or timer for queries
-	if (p_remote_addr.get() != 0) {
-		if (p_by_query) {
-			p_query_timer.stop();
-			if (p_hz > 0) {
-				RCLCPP_INFO(logger, "create QUERY timer to get range data from %s", p_remote_addr.str().c_str());
-				p_query_timer.set_rate(p_hz);
-				p_query_timer.start();
-			} else {
-				RCLCPP_WARN(logger, "invalid hz %.2f for QUERY timer to get range data from %s", p_hz, p_remote_addr.str().c_str());
-			}
-		} else {
-			RCLCPP_INFO(logger, "create EVENT to get range data from %s", p_remote_addr.str().c_str());
-			pEventsClient_ReceiveFSM->create_event(*this, p_remote_addr, p_query_sensor_data, p_hz);
-		}
-	}
+	p_query_state = 1;
 }
 
 void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCompressedDataAction(ReportRangeSensorCompressedData msg, Receive::Body::ReceiveRec transportData)

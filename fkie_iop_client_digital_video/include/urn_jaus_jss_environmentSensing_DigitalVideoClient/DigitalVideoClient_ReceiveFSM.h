@@ -66,11 +66,10 @@ public:
 
 
 	/// SlaveHandlerInterface Methods
-	void control_allowed(std::string service_uri, JausAddress component, unsigned char authority);
-	void enable_monitoring_only(std::string service_uri, JausAddress component);
-	void access_deactivated(std::string service_uri, JausAddress component);
-	void create_events(std::string service_uri, JausAddress component, bool by_query=false);
-	void cancel_events(std::string service_uri, JausAddress component, bool by_query=false);
+	void register_events(JausAddress remote_addr, double hz);
+	void unregister_events(JausAddress remote_addr);
+	void send_query(JausAddress remote_addr);
+	void stop_query(JausAddress remote_addr);
 	/// Guard Methods
 
 
@@ -88,10 +87,8 @@ protected:
 	std::shared_ptr<iop::Component> cmp;
 	rclcpp::Logger logger;
 
-	JausAddress p_remote_addr;
 	rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr p_sub_cur_dv_id;
 	uint16_t p_current_resource_id;
-	bool p_has_access;
 
 	void p_dandle_current_ressource_id(const std_msgs::msg::UInt16::SharedPtr msg);
 

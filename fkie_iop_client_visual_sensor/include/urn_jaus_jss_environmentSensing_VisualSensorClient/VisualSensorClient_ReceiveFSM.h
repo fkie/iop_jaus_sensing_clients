@@ -50,11 +50,10 @@ public:
 
 
 	/// SlaveHandlerInterface Methods
-	void control_allowed(std::string service_uri, JausAddress component, unsigned char authority);
-	void enable_monitoring_only(std::string service_uri, JausAddress component);
-	void access_deactivated(std::string service_uri, JausAddress component);
-	void create_events(std::string service_uri, JausAddress component, bool by_query=false);
-	void cancel_events(std::string service_uri, JausAddress component, bool by_query=false);
+	void register_events(JausAddress remote_addr, double hz);
+	void unregister_events(JausAddress remote_addr);
+	void send_query(JausAddress remote_addr);
+	void stop_query(JausAddress remote_addr);
 	/// Guard Methods
 
 	/// EventHandlerInterface Methods
@@ -78,13 +77,9 @@ protected:
 	typedef std::unique_lock<mutex_type> lock_type;
 	mutable mutex_type p_mutex;
 
-	JausAddress p_remote_addr;
-	bool p_has_access;
 	int p_query_state;
-	bool p_by_query;
 	double p_hz;
 	uint8_t p_request_id;
-	iop::Timer p_query_timer;
 	rclcpp::Publisher<fkie_iop_msgs::msg::VisualSensorNames>::SharedPtr p_pub_visual_sensor_names;
 	rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticStatus>::SharedPtr p_pub_diagnostic;
 	QueryVisualSensorCapabilities p_query_caps;
@@ -93,7 +88,6 @@ protected:
 	std::map<unsigned int, std::map<uint16_t, std::string> > p_sensor_names;  // JausAddress, sensor ID, name
 	std::map<uint16_t, std::shared_ptr<iop::VisualSensorClient> > p_sensors;
 
-	void pQueryCallback();
 	void p_state_changed(uint16_t id, SetConfigurationRec cfg);
         void p_pub_power_states();
 

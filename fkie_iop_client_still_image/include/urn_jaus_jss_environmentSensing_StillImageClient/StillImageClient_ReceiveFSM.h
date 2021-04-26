@@ -70,11 +70,10 @@ public:
 	void event(JausAddress reporter, unsigned short query_msg_id, unsigned int reportlen, const unsigned char* reportdata);
 
 	/// SlaveHandlerInterface Methods
-	void control_allowed(std::string service_uri, JausAddress component, unsigned char authority);
-	void enable_monitoring_only(std::string service_uri, JausAddress component);
-	void access_deactivated(std::string service_uri, JausAddress component);
-	void create_events(std::string service_uri, JausAddress component, bool by_query=false);
-	void cancel_events(std::string service_uri, JausAddress component, bool by_query=false);
+	void register_events(JausAddress remote_addr, double hz);
+	void unregister_events(JausAddress remote_addr);
+	void send_query(JausAddress remote_addr);
+	void stop_query(JausAddress remote_addr);
 	/// Guard Methods
 
 
@@ -92,14 +91,10 @@ protected:
 	std::shared_ptr<iop::Component> cmp;
 	rclcpp::Logger logger;
 
-	JausAddress p_remote_addr;
-	iop::Timer p_query_timer;
 	std::map<unsigned int, image_transport::CameraPublisher> p_publisher_map;  // sensor id, publisher
 	std::map<std::string, unsigned int> p_topic_map;  // topic name, sensor id
 	std::vector<unsigned int> p_requested_sensors;  // sensor id
-	bool p_has_access;
 	int p_query_state;
-	bool p_by_query;
 	double p_hz;
 	bool p_lazy;
 	bool p_use_id_for_topics;
@@ -108,7 +103,6 @@ protected:
 	QueryStillImageSensorCapabilities p_query_cap;
 	QueryStillImageData p_query_image_data;
 
-	void pQueryCallback();
 	std::string get_image_format(unsigned short format);
 
 	void p_connect_to_service(unsigned int id);

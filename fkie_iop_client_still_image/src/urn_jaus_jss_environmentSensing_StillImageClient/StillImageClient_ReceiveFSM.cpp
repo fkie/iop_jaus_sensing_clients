@@ -22,7 +22,6 @@ along with this program; or you can read the full license at
 
 #include "urn_jaus_jss_environmentSensing_StillImageClient/StillImageClient_ReceiveFSM.h"
 #include <fkie_iop_component/iop_config.hpp>
-#include <fkie_iop_ocu_slavelib/Slave.h>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 // #include <opencv2/core/version.hpp>
@@ -36,8 +35,8 @@ namespace urn_jaus_jss_environmentSensing_StillImageClient
 
 
 StillImageClient_ReceiveFSM::StillImageClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClient_ReceiveFSM* pVisualSensorClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM)
-: logger(cmp->get_logger().get_child("StillImageClient")),
-  p_query_timer(std::chrono::milliseconds(100), std::bind(&StillImageClient_ReceiveFSM::pQueryCallback, this), false)
+: SlaveHandlerInterface(cmp, "StillImageClient", 10.0),
+  logger(cmp->get_logger().get_child("StillImageClient"))
 {
 
 	/*
@@ -52,9 +51,7 @@ StillImageClient_ReceiveFSM::StillImageClient_ReceiveFSM(std::shared_ptr<iop::Co
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
 	this->cmp = cmp;
-	p_has_access = false;
 	p_query_state = 0;
-	p_by_query = false;
 	p_hz = 1;
 	p_use_id_for_topics = true;
 
@@ -97,51 +94,42 @@ void StillImageClient_ReceiveFSM::setupIopConfiguration()
 		"Default: 10.0");
 	cfg.param("hz", p_hz, p_hz, false);
 	cfg.param("use_id_for_topics", p_use_id_for_topics, p_use_id_for_topics);
-	auto slave = iop::ocu::Slave::get_instance(cmp);
-	slave->add_supported_service(*this, "urn:jaus:jss:environmentSensing:StillImage", 1, 0);
-
+	// initialize the control layer, which handles the access control staff
+	this->set_rate(p_hz);
+	this->set_supported_service(*this, "urn:jaus:jss:environmentSensing:StillImage", 1, 0);
+	this->set_event_name("image configuration");
+	this->set_query_before_event(true, 1.0);
 }
 
-void StillImageClient_ReceiveFSM::control_allowed(std::string service_uri, JausAddress component, unsigned char authority)
+void StillImageClient_ReceiveFSM::register_events(JausAddress remote_addr, double hz)
 {
-	if (service_uri.compare("urn:jaus:jss:environmentSensing:StillImage") == 0) {
-		p_has_access = true;
-		p_remote_addr = component;
-		RCLCPP_INFO(logger, "access granted for %d.%d.%d",
-				component.getSubsystemID(), component.getNodeID(), component.getComponentID());
+	// pEventsClient_ReceiveFSM->create_event(*this, remote_addr, p_query_image_data, p_hz);
+}
+
+void StillImageClient_ReceiveFSM::unregister_events(JausAddress remote_addr)
+{
+	// pEventsClient_ReceiveFSM->cancel_event(*this, remote_addr, p_query_image_data);
+	stop_query(remote_addr);
+}
+
+void StillImageClient_ReceiveFSM::send_query(JausAddress remote_addr)
+{
+	if (p_query_state == 0) {
+		sendJausMessage(p_query_cfg, remote_addr);
+	} else if (p_query_state == 1) {
+		sendJausMessage(p_query_cap, remote_addr);
 	} else {
-		RCLCPP_WARN(logger, "unexpected control allowed for %s received, ignored!", service_uri.c_str());
+		sendJausMessage(p_query_image_data, remote_addr);
 	}
 }
 
-void StillImageClient_ReceiveFSM::enable_monitoring_only(std::string service_uri, JausAddress component)
+void StillImageClient_ReceiveFSM::stop_query(JausAddress remote_addr)
 {
-	RCLCPP_INFO(logger, "monitor enabled for %s", component.str().c_str());
-	p_remote_addr = component;
-}
-
-void StillImageClient_ReceiveFSM::access_deactivated(std::string service_uri, JausAddress component)
-{
-	p_has_access = false;
-	p_remote_addr = JausAddress(0);
-	RCLCPP_INFO(logger, "access released for %s", component.str().c_str());
-}
-
-void StillImageClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
-{
-	p_by_query = by_query;
-	sendJausMessage(p_query_cfg, component);
-	p_query_timer.set_rate(0.33);
-	p_query_timer.start();
-}
-
-void StillImageClient_ReceiveFSM::cancel_events(std::string service_uri, JausAddress component, bool by_query)
-{
+	p_query_state = 0;
 	std::vector<unsigned int> tmp(p_requested_sensors);
 	for (unsigned int i = 0; i < tmp.size(); i++) {
 		p_disconnect_from_service(tmp[i]);
 	}
-	p_query_state = 0;
 }
 
 void StillImageClient_ReceiveFSM::event(JausAddress reporter, unsigned short query_msg_id, unsigned int reportlen, const unsigned char* reportdata)
@@ -153,20 +141,6 @@ void StillImageClient_ReceiveFSM::event(JausAddress reporter, unsigned short que
 	transport_data.setSrcNodeID(reporter.getNodeID());
 	transport_data.setSrcComponentID(reporter.getComponentID());
 	handleReportStillImageDataAction(report, transport_data);
-}
-
-
-void StillImageClient_ReceiveFSM::pQueryCallback()
-{
-	if (p_remote_addr.get() != 0) {
-		if (p_query_state == 0) {
-			sendJausMessage(p_query_cfg, p_remote_addr);
-		} else if (p_query_state == 1) {
-			sendJausMessage(p_query_cap, p_remote_addr);
-		} else {
-			sendJausMessage(p_query_image_data, p_remote_addr);
-		}
-	}
 }
 
 void StillImageClient_ReceiveFSM::handleReportStillImageDataAction(ReportStillImageData msg, Receive::Body::ReceiveRec transportData)
@@ -251,11 +225,10 @@ void StillImageClient_ReceiveFSM::handleReportStillImageSensorConfigurationActio
 			}
 		}
 	}
-	p_query_state = 2;
+	this->set_event_name("image capabilities");
+	p_query_state = 1;
 	// create event or timer for queries
-	if (p_remote_addr.get() != 0) {
-		if (!p_lazy) {
-		}
+	if (!p_lazy) {
 	}
 }
 
@@ -297,7 +270,7 @@ void StillImageClient_ReceiveFSM::pDisconnectImageCallback(const image_transport
 
 void StillImageClient_ReceiveFSM::p_connect_to_service(unsigned int id)
 {
-	if (p_remote_addr.get() != 0) {
+	if (has_remote_addr()) {
 		// add sensor id to query
 		QueryStillImageData::Body::QueryStillImageDataList::QueryStillImageDataRec drec;
 		drec.setSensorID(id); // 0 is specified to get all sensors
@@ -306,11 +279,11 @@ void StillImageClient_ReceiveFSM::p_connect_to_service(unsigned int id)
 		RCLCPP_INFO(logger, "update query message to get still image with id: %d ", id);
 		if (p_requested_sensors.size() == 0) {
 			if (p_by_query) {
-				p_query_timer.stop();
+				p_timer.stop();
 				if (p_hz > 0) {
 					RCLCPP_INFO(logger, "create QUERY timer to get still image @%.2fHz from %s", p_hz, p_remote_addr.str().c_str());
-					p_query_timer.set_rate(p_hz);
-					p_query_timer.start();
+					p_timer.set_rate(p_hz);
+					p_timer.start();
 				}
 			}
 		}
@@ -340,7 +313,7 @@ void StillImageClient_ReceiveFSM::p_disconnect_from_service(unsigned int id)
 		p_query_image_data.getBody()->setQueryStillImageDataList(qlist);
 		RCLCPP_INFO(logger, "update query to remove still image %d @%.2fHz from %s", id, p_hz, p_remote_addr.str().c_str());
 		if (qlist.getNumberOfElements() == 0) {
-			p_query_timer.stop();
+			p_timer.stop();
 			if (!p_by_query) {
 				RCLCPP_INFO(logger, "cancel EVENT for still image for %s", p_remote_addr.str().c_str());
 				pEventsClient_ReceiveFSM->cancel_event(*this, p_remote_addr, p_query_image_data);
