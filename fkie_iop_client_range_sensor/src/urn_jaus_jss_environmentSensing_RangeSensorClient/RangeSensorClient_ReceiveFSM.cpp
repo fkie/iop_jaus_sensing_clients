@@ -122,7 +122,7 @@ void RangeSensorClient_ReceiveFSM::unregister_events(JausAddress remote_addr)
 
 void RangeSensorClient_ReceiveFSM::send_query(JausAddress remote_addr)
 {
-	sendJausMessage(p_query_sensor_data, remote_addr);
+	// sendJausMessage(p_query_sensor_data, remote_addr);
 	if (p_query_state == 0) {
 		sendJausMessage(p_query_cfg, remote_addr);
 	} else if (p_query_state == 1) {
@@ -188,7 +188,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 			}
 		}
 	}
-	p_query_state = 1;
+	p_query_state = 2;
 }
 
 void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCompressedDataAction(ReportRangeSensorCompressedData msg, Receive::Body::ReceiveRec transportData)
