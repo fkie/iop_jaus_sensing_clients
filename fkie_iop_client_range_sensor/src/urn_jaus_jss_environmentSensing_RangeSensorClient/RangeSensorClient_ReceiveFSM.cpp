@@ -175,7 +175,11 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 		unsigned int id = item->getSensorID();
 		if (p_publisher_map.find(id) == p_publisher_map.end()) {
 			p_publisher_map[id] = cfg.create_publisher<sensor_msgs::msg::LaserScan>(item->getSensorName(), 1);
-			p_sensor_names[id] = p_publisher_map[id]->get_topic_name();
+			std::string sensorname = p_publisher_map[id]->get_topic_name();
+			if (sensorname.at(0) == '/') {
+				sensorname = sensorname.erase(0, 1);
+			}
+			p_sensor_names[id] = sensorname;
 			p_sensor_max_range[id] = item->getMaximumRange();
 			p_sensor_min_range[id] = item->getMinimumRange();
 			try {
