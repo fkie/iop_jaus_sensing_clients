@@ -131,7 +131,7 @@ void RangeSensorClient_ReceiveFSM::send_query(JausAddress remote_addr)
 		sendJausMessage(p_query_cap, remote_addr);
 		p_query_state = 2;
 		this->set_event_name("range data");
-		this->set_query_before_event(false, 1.0);
+		this->set_query_before_event(false, p_hz);
 	} else {
 		sendJausMessage(p_query_sensor_data, remote_addr);
 	}
