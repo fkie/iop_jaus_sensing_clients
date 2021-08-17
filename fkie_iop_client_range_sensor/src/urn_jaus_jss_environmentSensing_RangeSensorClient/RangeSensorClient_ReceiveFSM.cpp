@@ -51,7 +51,7 @@ RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(std::shared_ptr<iop::
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
 	this->cmp = cmp;
 	p_query_state = 0;
-	p_hz = 5.0;
+	p_hz = 10.0;
 	QueryRangeSensorData::Body::QueryRangeSensorDataList::QueryRangeSensorDataRec drec;
 	drec.setSensorID(0); // 0 is specified to get all sensors
 	drec.setReportCoordinateSystem(1); // we use vehicle coordinate system
@@ -134,6 +134,8 @@ void RangeSensorClient_ReceiveFSM::send_query(JausAddress remote_addr)
 		this->set_query_before_event(false, p_hz);
 	} else {
 		sendJausMessage(p_query_sensor_data, remote_addr);
+		this->set_event_name("range data");
+		this->set_query_before_event(false, p_hz);
 	}
 }
 
