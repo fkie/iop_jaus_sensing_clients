@@ -269,6 +269,9 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 					rosmsg.ranges.push_back(range);
 				}
 				rosmsg.range_max = p_sensor_max_range[id];
+				if (rosmsg.range_max == 0) {
+					rosmsg.range_max = 255;
+				}
 				rosmsg.range_min = p_sensor_min_range[id];
 				p_publisher_map[id]->publish(rosmsg);
 			} else {
