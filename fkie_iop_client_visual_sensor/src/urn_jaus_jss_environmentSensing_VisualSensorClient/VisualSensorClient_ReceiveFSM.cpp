@@ -71,6 +71,7 @@ void VisualSensorClient_ReceiveFSM::control_allowed(std::string service_uri, Jau
 {
 	if (service_uri.compare("urn:jaus:jss:environmentSensing:VisualSensor") == 0) {
 		p_remote_addr = component;
+		ROS_INFO_NAMED("VisualSensorClient", "control_allowed for visual sensors from %s", component.str().c_str());
 		p_has_access = true;
 	} else {
 		ROS_WARN_STREAM_NAMED("VisualSensorClient", "unexpected control allowed for " << service_uri << " received, ignored!");
@@ -93,6 +94,7 @@ void VisualSensorClient_ReceiveFSM::access_deactivated(std::string service_uri, 
 
 void VisualSensorClient_ReceiveFSM::create_events(std::string service_uri, JausAddress component, bool by_query)
 {
+	p_query_state = 0;
 	ROS_INFO_NAMED("VisualSensorClient", "create QUERY timer to update names for visual sensors from %s", component.str().c_str());
 	p_query_timer = p_nh.createTimer(ros::Duration(1), &VisualSensorClient_ReceiveFSM::pQueryCallback, this);
 	p_by_query = by_query;
