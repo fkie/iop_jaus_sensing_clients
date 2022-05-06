@@ -180,8 +180,10 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorCapabilitiesAction(Rep
 			p_sensor_max_range[id] = item->getMaximumRange();
 			p_sensor_min_range[id] = item->getMinimumRange();
 			try {
-				p_tf_map[id].child_frame_id = p_sensor_names[id];
+				geometry_msgs::TransformStamped& tf_msg  = p_tf_map.at(id);
+				tf_msg.child_frame_id = p_sensor_names[id];
 			} catch (std::exception &e) {
+				ROS_WARN_THROTTLE_NAMED(30, "RangeSensorClient", "cannot set child frame id for %s, no static geometry received.", p_sensor_names[id].c_str());
 			}
 		}
 	}
@@ -248,8 +250,10 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 						}
 						p_tf_broadcaster.sendTransform(tf_msg);
 					}
+				} catch (std::out_of_range &e) {
+					ROS_WARN_THROTTLE(30, "RangeSensorClient: can't publish tf for sensor %s with id %d: no static geometry received!", sensor_id.c_str(), id);
 				} catch (std::exception &e) {
-					ROS_WARN("RangeSensorClient: can not publish tf for sensor %s: %s", sensor_id.c_str(), e.what());
+					ROS_WARN_THROTTLE(30, "RangeSensorClient: can't publish tf for sensor %s with id %d: %s", sensor_id.c_str(), id, e.what());
 				}
 				sensor_msgs::LaserScan rosmsg;
 				rosmsg.header.frame_id = sensor_id;
@@ -306,20 +310,23 @@ void RangeSensorClient_ReceiveFSM::handleReportSensorGeometricPropertiesAction(R
 			ReportSensorGeometricProperties::Body::GeometricPropertiesList::GeometricPropertiesSequence *element = msg.getBody()->getGeometricPropertiesList()->getElement(i);
 			jUnsignedShortInteger sensor_id = element->getSensorIdRec()->getSensorID();
 			// create and publish TF message
-			ReportSensorGeometricProperties::Body::GeometricPropertiesList::GeometricPropertiesSequence::GeometricPropertiesVariant::StaticGeometricPropertiesRec *staticgeo = element->getGeometricPropertiesVariant()->getStaticGeometricPropertiesRec();
-			geometry_msgs::TransformStamped msg;
-			msg.transform.translation.x = staticgeo->getSensorPosition()->getPositionVectorElement(0);
-			msg.transform.translation.y = staticgeo->getSensorPosition()->getPositionVectorElement(1);
-			msg.transform.translation.z = staticgeo->getSensorPosition()->getPositionVectorElement(2);
-			msg.transform.rotation.x = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(0);
-			msg.transform.rotation.y = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(1);
-			msg.transform.rotation.z = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(2);
-			msg.transform.rotation.w = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(3);
-			msg.header.stamp = ros::Time::now();
-			msg.header.frame_id = this->p_tf_frame_robot;
-			msg.child_frame_id = p_sensor_names[sensor_id];
-			ROS_DEBUG_NAMED("RangeSensorClient", "initialized tf %s -> %s", this->p_tf_frame_robot.c_str(), p_sensor_names[sensor_id].c_str());
-			p_tf_map[sensor_id] = msg;
+			if (element->getGeometricPropertiesVariant()->getFieldValue() == 1) {
+				// handle only the static geometries
+				ReportSensorGeometricProperties::Body::GeometricPropertiesList::GeometricPropertiesSequence::GeometricPropertiesVariant::StaticGeometricPropertiesRec *staticgeo = element->getGeometricPropertiesVariant()->getStaticGeometricPropertiesRec();
+				geometry_msgs::TransformStamped msg;
+				msg.transform.translation.x = staticgeo->getSensorPosition()->getPositionVectorElement(0);
+				msg.transform.translation.y = staticgeo->getSensorPosition()->getPositionVectorElement(1);
+				msg.transform.translation.z = staticgeo->getSensorPosition()->getPositionVectorElement(2);
+				msg.transform.rotation.x = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(0);
+				msg.transform.rotation.y = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(1);
+				msg.transform.rotation.z = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(2);
+				msg.transform.rotation.w = staticgeo->getUnitQuaternion()->getUnitQuaternionElement(3);
+				msg.header.stamp = ros::Time::now();
+				msg.header.frame_id = this->p_tf_frame_robot;
+				msg.child_frame_id = p_sensor_names[sensor_id];
+				ROS_DEBUG_NAMED("RangeSensorClient", "initialized tf %s -> %s", this->p_tf_frame_robot.c_str(), p_sensor_names[sensor_id].c_str());
+				p_tf_map[sensor_id] = msg;
+			}
 		} catch (std::exception &e) {
 			ROS_WARN("RangeSensorClient: can not create tf for sensor: %s", e.what());
 		}
