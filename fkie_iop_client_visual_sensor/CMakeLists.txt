@@ -24,6 +24,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(fkie_iop_ocu_slavelib REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 
 ###############
@@ -61,12 +62,14 @@ iop_code_generator(
 set(dependencies
   diagnostic_msgs
   fkie_iop_ocu_slavelib
+  geometry_msgs
   std_msgs
 )
 
 include_directories(
   include
   ${IOP_COMPONENT_INCLUDE_DIRS}
+  ${fkie_iop_ocu_slavelib_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -74,7 +77,13 @@ add_library(${PROJECT_NAME} SHARED
   ${cppfiles}
 )
 
-ament_target_dependencies(${PROJECT_NAME} ${dependencies})
+add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  ${diagnostic_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
+  ${std_msgs_TARGETS}
+  fkie_iop_ocu_slavelib::fkie_iop_ocu_slavelib
+)
 
 #############
 ## Install ##
@@ -94,13 +103,24 @@ install(
   PATTERN "*.gen" EXCLUDE
 )
 
-install(TARGETS ${PROJECT_NAME}
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}Targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-ament_export_include_directories(include ${IOP_COMPONENT_INCLUDE_DIRS})
+install(
+  EXPORT ${PROJECT_NAME}Targets
+  FILE ${PROJECT_NAME}Targets.cmake
+  NAMESPACE ${PROJECT_NAME}::
+  DESTINATION share/${PROJECT_NAME}/cmake
+)
+ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
+
+
+ament_export_include_directories(include ${IOP_COMPONENT_INCLUDE_DIRS} ${fkie_iop_ocu_slavelib_INCLUDE_DIRS})
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(${dependencies})
 pluginlib_export_plugin_description_file(fkie_iop_component plugin_iop.xml)

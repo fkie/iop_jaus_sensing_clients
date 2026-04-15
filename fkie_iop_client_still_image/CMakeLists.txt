@@ -71,14 +71,24 @@ set(dependencies
 )
 
 include_directories(
+  ${cv_bridge_INCLUDE_DIRS}
   ${IOP_COMPONENT_INCLUDE_DIRS}
+  ${fkie_iop_client_visual_sensor_INCLUDE_DIRS}
+  ${fkie_iop_ocu_slavelib_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME} SHARED
             ${cppfiles}
 )
 
-ament_target_dependencies(${PROJECT_NAME} ${dependencies})
+add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  ${cv_bridge_TARGETS}
+  ${image_transport_TARGETS}
+  ${sensor_msgs_TARGETS}
+  fkie_iop_client_visual_sensor::fkie_iop_client_visual_sensor
+  fkie_iop_ocu_slavelib::fkie_iop_ocu_slavelib
+)
 
 #############
 ## Install ##
@@ -97,7 +107,13 @@ install(TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-ament_export_include_directories(include ${IOP_COMPONENT_INCLUDE_DIRS})
+ament_export_include_directories(
+  include
+  ${IOP_COMPONENT_INCLUDE_DIRS}
+  ${fkie_iop_client_visual_sensor_INCLUDE_DIRS}
+  ${fkie_iop_ocu_slavelib_INCLUDE_DIRS}
+)
+
 ament_export_libraries(${PROJECT_NAME})
 ament_export_dependencies(${dependencies})
 pluginlib_export_plugin_description_file(fkie_iop_component plugin_iop.xml)
