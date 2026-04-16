@@ -35,8 +35,7 @@ namespace urn_jaus_jss_environmentSensing_RangeSensorClient
 
 RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM)
 : SlaveHandlerInterface(cmp, "RangeSensorClient", 2.0),
-  logger(cmp->get_logger().get_child("RangeSensorClient")),
-  p_tf_broadcaster(cmp)
+  logger(cmp->get_logger().get_child("RangeSensorClient"))
 {
 
 	/*
@@ -46,6 +45,10 @@ RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(std::shared_ptr<iop::
 	 */
 	context = new RangeSensorClient_ReceiveFSMContext(*this);
 
+	this->p_tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(
+		cmp->get_node_parameters_interface(),
+		cmp->get_node_topics_interface()
+	);
 	this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
 	this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
 	this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
@@ -236,7 +239,7 @@ void RangeSensorClient_ReceiveFSM::handleReportRangeSensorDataAction(ReportRange
 						if (tf_msg.header.frame_id.empty()) {
 							tf_msg.header.frame_id = this->p_tf_frame_robot;
 						}
-						p_tf_broadcaster.sendTransform(tf_msg);
+						p_tf_broadcaster->sendTransform(tf_msg);
 					}
 				} catch (std::exception &e) {
 					RCLCPP_WARN(logger, "can not publish tf for sensor %s: %s", sensor_id.c_str(), e.what());

@@ -22,7 +22,7 @@ along with this program; or you can read the full license at
 
 #include "urn_jaus_jss_environmentSensing_StillImageClient/StillImageClient_ReceiveFSM.h"
 #include <fkie_iop_component/iop_config.hpp>
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/opencv.hpp>
 // #include <opencv2/core/version.hpp>
 
@@ -211,7 +211,9 @@ void StillImageClient_ReceiveFSM::handleReportStillImageSensorConfigurationActio
 		}
 		if (p_publisher_map.find(id) == p_publisher_map.end()) {
 			if (!sensor_name.empty()) {
-				image_transport::ImageTransport it(cmp);
+				image_transport::ImageTransport it(
+					std::static_pointer_cast<rclcpp::Node>(cmp)
+				);
 				RCLCPP_DEBUG(logger, "create image transport publisher for %s", sensor_name.c_str());
 				// TODO(ros2) Implement when SubscriberStatusCallback is available
 				p_publisher_map[id] = it.advertiseCamera(sensor_name, 1);

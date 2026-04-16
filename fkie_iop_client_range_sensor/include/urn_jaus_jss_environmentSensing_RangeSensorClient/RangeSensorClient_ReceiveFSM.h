@@ -42,9 +42,11 @@ along with this program; or you can read the full license at
 
 #include "RangeSensorClient_ReceiveFSM_sm.h"
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node_interfaces/node_base_interface.hpp>
+#include <rclcpp/node_interfaces/node_topics_interface.hpp>
 #include <fkie_iop_component/iop_component.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
-#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <vector>
 #include <fkie_iop_ocu_slavelib/SlaveHandlerInterface.h>
@@ -101,7 +103,7 @@ protected:
 
 
 	std::string p_tf_frame_robot;
-	tf2_ros::TransformBroadcaster p_tf_broadcaster;
+	std::unique_ptr<tf2_ros::TransformBroadcaster> p_tf_broadcaster;
 	std::map<unsigned int, geometry_msgs::msg::TransformStamped> p_tf_map;
 	std::map<unsigned int, rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr > p_publisher_map;
 	std::map<unsigned int, std::string> p_sensor_names;
