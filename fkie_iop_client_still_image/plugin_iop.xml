@@ -1,5 +1,5 @@
 <library path="fkie_iop_client_still_image">
 	<class name="StillImageClient" type="urn_jaus_jss_environmentSensing_StillImageClient::StillImageClientService" base_class_type="JTS::Service"
-		id="urn:jaus:jss:environmentSensing:StillImageClient" version="1.0">
+		id="urn:jaus:jss:environmentSensing:StillImageClient" version="2.0">
 	</class>
 </library>

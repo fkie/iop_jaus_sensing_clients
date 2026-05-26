@@ -3,94 +3,86 @@
 #ifndef VISUALSENSORCLIENT_RECEIVEFSM_H
 #define VISUALSENSORCLIENT_RECEIVEFSM_H
 
-#include "JausUtils.h"
 #include "InternalEvents/InternalEventHandler.h"
-#include "Transport/JausTransport.h"
 #include "JTSStateMachine.h"
-#include "urn_jaus_jss_environmentSensing_VisualSensorClient/Messages/MessageSet.h"
+#include "JausUtils.h"
+#include "Transport/JausTransport.h"
 #include "urn_jaus_jss_environmentSensing_VisualSensorClient/InternalEvents/InternalEventsSet.h"
+#include "urn_jaus_jss_environmentSensing_VisualSensorClient/Messages/MessageSet.h"
 
 #include "InternalEvents/Receive.h"
 #include "InternalEvents/Send.h"
 
-#include "urn_jaus_jss_core_Transport/Transport_ReceiveFSM.h"
-#include "urn_jaus_jss_core_EventsClient/EventsClient_ReceiveFSM.h"
 #include "urn_jaus_jss_core_AccessControlClient/AccessControlClient_ReceiveFSM.h"
-
+#include "urn_jaus_jss_core_EventsClient/EventsClient_ReceiveFSM.h"
+#include "urn_jaus_jss_core_Transport/Transport_ReceiveFSM.h"
 
 #include "VisualSensorClient_ReceiveFSM_sm.h"
-#include <rclcpp/rclcpp.hpp>
-#include <fkie_iop_component/iop_component.hpp>
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
-#include <std_msgs/msg/u_int16.hpp>
-#include <fkie_iop_ocu_slavelib/SlaveHandlerInterface.h>
-#include <fkie_iop_events/EventHandlerInterface.h>
 #include <fkie_iop_client_visual_sensor/VisualSensorClient.h>
+#include <fkie_iop_component/iop_component.hpp>
+#include <fkie_iop_events/EventHandlerInterface.h>
 #include <fkie_iop_msgs/msg/visual_sensor_names.hpp>
+#include <fkie_iop_ocu_slavelib/SlaveHandlerInterface.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/u_int16.hpp>
 
+namespace urn_jaus_jss_environmentSensing_VisualSensorClient {
 
-namespace urn_jaus_jss_environmentSensing_VisualSensorClient
-{
-
-class DllExport VisualSensorClient_ReceiveFSM : public JTS::StateMachine, public iop::ocu::SlaveHandlerInterface, public iop::EventHandlerInterface
-{
+class DllExport VisualSensorClient_ReceiveFSM : public JTS::StateMachine, public iop::ocu::SlaveHandlerInterface, public iop::EventHandlerInterface {
 public:
-	VisualSensorClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM);
-	virtual ~VisualSensorClient_ReceiveFSM();
+    VisualSensorClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM);
+    virtual ~VisualSensorClient_ReceiveFSM();
 
-	/// Handle notifications on parent state changes
-	virtual void setupNotifications();
-	virtual void setupIopConfiguration();
+    /// Handle notifications on parent state changes
+    virtual void setupNotifications();
+    virtual void setupIopConfiguration();
 
-	/// Action Methods
-	virtual void handleConfirmSensorConfigurationAction(ConfirmSensorConfiguration msg, Receive::Body::ReceiveRec transportData);
-	virtual void handleReportSensorGeometricPropertiesAction(ReportSensorGeometricProperties msg, Receive::Body::ReceiveRec transportData);
-	virtual void handleReportVisualSensorCapabilitiesAction(ReportVisualSensorCapabilities msg, Receive::Body::ReceiveRec transportData);
-	virtual void handleReportVisualSensorConfigurationAction(ReportVisualSensorConfiguration msg, Receive::Body::ReceiveRec transportData);
+    /// Action Methods
+    virtual void handleConfirmSensorConfigurationAction(ConfirmSensorConfiguration msg, Receive::Body::ReceiveRec transportData);
+    virtual void handleReportSensorGeometricPropertiesAction(ReportSensorGeometricProperties msg, Receive::Body::ReceiveRec transportData);
+    virtual void handleReportVisualSensorCapabilitiesAction(ReportVisualSensorCapabilities msg, Receive::Body::ReceiveRec transportData);
+    virtual void handleReportVisualSensorConfigurationAction(ReportVisualSensorConfiguration msg, Receive::Body::ReceiveRec transportData);
 
+    /// SlaveHandlerInterface Methods
+    void register_events(JausAddress remote_addr, double hz);
+    void unregister_events(JausAddress remote_addr);
+    void send_query(JausAddress remote_addr);
+    void stop_query(JausAddress remote_addr);
+    /// Guard Methods
 
-	/// SlaveHandlerInterface Methods
-	void register_events(JausAddress remote_addr, double hz);
-	void unregister_events(JausAddress remote_addr);
-	void send_query(JausAddress remote_addr);
-	void stop_query(JausAddress remote_addr);
-	/// Guard Methods
+    /// EventHandlerInterface Methods
+    void event(JausAddress reporter, unsigned short query_msg_id, unsigned int reportlen, const unsigned char* reportdata);
+    std::string get_sensor_name(JausAddress& component, unsigned short id);
 
-	/// EventHandlerInterface Methods
-	void event(JausAddress reporter, unsigned short query_msg_id, unsigned int reportlen, const unsigned char* reportdata);
-	std::string get_sensor_name(JausAddress &component, unsigned short id);
-
-
-	VisualSensorClient_ReceiveFSMContext *context;
+    VisualSensorClient_ReceiveFSMContext* context;
 
 protected:
+    /// References to parent FSMs
+    urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
+    urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
+    urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM;
 
-	/// References to parent FSMs
-	urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
-	urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
-	urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM;
+    std::shared_ptr<iop::Component> cmp;
+    rclcpp::Logger logger;
 
-	std::shared_ptr<iop::Component> cmp;
-	rclcpp::Logger logger;
+    typedef std::recursive_mutex mutex_type;
+    typedef std::unique_lock<mutex_type> lock_type;
+    mutable mutex_type p_mutex;
 
-	typedef std::recursive_mutex mutex_type;
-	typedef std::unique_lock<mutex_type> lock_type;
-	mutable mutex_type p_mutex;
+    int p_query_state;
+    double p_hz;
+    uint8_t p_request_id;
+    rclcpp::Publisher<fkie_iop_msgs::msg::VisualSensorNames>::SharedPtr p_pub_visual_sensor_names;
+    rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticStatus>::SharedPtr p_pub_diagnostic;
+    QueryVisualSensorCapabilities p_query_caps;
+    QuerySensorGeometricProperties p_query_geo;
+    QueryVisualSensorConfiguration p_query_cfgs;
+    std::map<unsigned int, std::map<uint16_t, std::string>> p_sensor_names; // JausAddress, sensor ID, name
+    std::map<uint16_t, std::shared_ptr<iop::VisualSensorClient>> p_sensors;
 
-	int p_query_state;
-	double p_hz;
-	uint8_t p_request_id;
-	rclcpp::Publisher<fkie_iop_msgs::msg::VisualSensorNames>::SharedPtr p_pub_visual_sensor_names;
-	rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticStatus>::SharedPtr p_pub_diagnostic;
-	QueryVisualSensorCapabilities p_query_caps;
-	QuerySensorGeometricProperties p_query_geo;
-	QueryVisualSensorConfiguration p_query_cfgs;
-	std::map<unsigned int, std::map<uint16_t, std::string> > p_sensor_names;  // JausAddress, sensor ID, name
-	std::map<uint16_t, std::shared_ptr<iop::VisualSensorClient> > p_sensors;
-
-	void p_state_changed(uint16_t id, SetConfigurationRec cfg);
-        void p_pub_power_states();
-
+    void p_state_changed(uint16_t id, SetConfigurationRec cfg);
+    void p_pub_power_states();
 };
 
 }

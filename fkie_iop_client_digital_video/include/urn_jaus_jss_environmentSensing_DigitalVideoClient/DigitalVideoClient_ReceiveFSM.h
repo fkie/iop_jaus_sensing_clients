@@ -20,78 +20,68 @@ along with this program; or you can read the full license at
 
 /** \author Alexander Tiderko */
 
-
-
-
 #ifndef DIGITALVIDEOCLIENT_RECEIVEFSM_H
 #define DIGITALVIDEOCLIENT_RECEIVEFSM_H
 
-#include "JausUtils.h"
 #include "InternalEvents/InternalEventHandler.h"
-#include "Transport/JausTransport.h"
 #include "JTSStateMachine.h"
-#include "urn_jaus_jss_environmentSensing_DigitalVideoClient/Messages/MessageSet.h"
+#include "JausUtils.h"
+#include "Transport/JausTransport.h"
 #include "urn_jaus_jss_environmentSensing_DigitalVideoClient/InternalEvents/InternalEventsSet.h"
+#include "urn_jaus_jss_environmentSensing_DigitalVideoClient/Messages/MessageSet.h"
 
 #include "InternalEvents/Receive.h"
 #include "InternalEvents/Send.h"
 
-#include "urn_jaus_jss_core_Transport/Transport_ReceiveFSM.h"
-#include "urn_jaus_jss_core_EventsClient/EventsClient_ReceiveFSM.h"
 #include "urn_jaus_jss_core_AccessControlClient/AccessControlClient_ReceiveFSM.h"
+#include "urn_jaus_jss_core_EventsClient/EventsClient_ReceiveFSM.h"
+#include "urn_jaus_jss_core_Transport/Transport_ReceiveFSM.h"
 #include "urn_jaus_jss_environmentSensing_VisualSensorClient/VisualSensorClient_ReceiveFSM.h"
 
 #include "DigitalVideoClient_ReceiveFSM_sm.h"
-#include <rclcpp/rclcpp.hpp>
 #include <fkie_iop_component/iop_component.hpp>
-#include <std_msgs/msg/u_int16.hpp>
 #include <fkie_iop_ocu_slavelib/SlaveHandlerInterface.h>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/u_int16.hpp>
 
-namespace urn_jaus_jss_environmentSensing_DigitalVideoClient
-{
+namespace urn_jaus_jss_environmentSensing_DigitalVideoClient {
 
-class DllExport DigitalVideoClient_ReceiveFSM : public JTS::StateMachine, public iop::ocu::SlaveHandlerInterface
-{
+class DllExport DigitalVideoClient_ReceiveFSM : public JTS::StateMachine, public iop::ocu::SlaveHandlerInterface {
 public:
-	DigitalVideoClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClient_ReceiveFSM* pVisualSensorClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM);
-	virtual ~DigitalVideoClient_ReceiveFSM();
+    DigitalVideoClient_ReceiveFSM(std::shared_ptr<iop::Component> cmp, urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClient_ReceiveFSM* pVisualSensorClient_ReceiveFSM, urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM, urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM, urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM);
+    virtual ~DigitalVideoClient_ReceiveFSM();
 
-	/// Handle notifications on parent state changes
-	virtual void setupNotifications();
-	virtual void setupIopConfiguration();
+    /// Handle notifications on parent state changes
+    virtual void setupNotifications();
+    virtual void setupIopConfiguration();
 
-	/// Action Methods
-	virtual void handleReportDigitalVideoSensorCapabilitiesAction(ReportDigitalVideoSensorCapabilities msg, Receive::Body::ReceiveRec transportData);
-	virtual void handleReportDigitalVideoSensorConfigurationAction(ReportDigitalVideoSensorConfiguration msg, Receive::Body::ReceiveRec transportData);
+    /// Action Methods
+    virtual void handleReportDigitalVideoSensorCapabilitiesAction(ReportDigitalVideoSensorCapabilities msg, Receive::Body::ReceiveRec transportData);
+    virtual void handleReportDigitalVideoSensorConfigurationAction(ReportDigitalVideoSensorConfiguration msg, Receive::Body::ReceiveRec transportData);
 
+    /// SlaveHandlerInterface Methods
+    void register_events(JausAddress remote_addr, double hz);
+    void unregister_events(JausAddress remote_addr);
+    void send_query(JausAddress remote_addr);
+    void stop_query(JausAddress remote_addr);
+    /// Guard Methods
 
-	/// SlaveHandlerInterface Methods
-	void register_events(JausAddress remote_addr, double hz);
-	void unregister_events(JausAddress remote_addr);
-	void send_query(JausAddress remote_addr);
-	void stop_query(JausAddress remote_addr);
-	/// Guard Methods
-
-
-
-	DigitalVideoClient_ReceiveFSMContext *context;
+    DigitalVideoClient_ReceiveFSMContext* context;
 
 protected:
+    /// References to parent FSMs
+    urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClient_ReceiveFSM* pVisualSensorClient_ReceiveFSM;
+    urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
+    urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
+    urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM;
 
-	/// References to parent FSMs
-	urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClient_ReceiveFSM* pVisualSensorClient_ReceiveFSM;
-	urn_jaus_jss_core_AccessControlClient::AccessControlClient_ReceiveFSM* pAccessControlClient_ReceiveFSM;
-	urn_jaus_jss_core_EventsClient::EventsClient_ReceiveFSM* pEventsClient_ReceiveFSM;
-	urn_jaus_jss_core_Transport::Transport_ReceiveFSM* pTransport_ReceiveFSM;
+    std::shared_ptr<iop::Component> cmp;
+    rclcpp::Logger logger;
 
-	std::shared_ptr<iop::Component> cmp;
-	rclcpp::Logger logger;
+    rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr p_sub_cur_dv_id;
+    uint16_t p_current_resource_id;
 
-	rclcpp::Subscription<std_msgs::msg::UInt16>::SharedPtr p_sub_cur_dv_id;
-	uint16_t p_current_resource_id;
-
-	void p_dandle_current_ressource_id(const std_msgs::msg::UInt16::SharedPtr msg);
-
+    void p_dandle_current_ressource_id(const std_msgs::msg::UInt16::SharedPtr msg);
 };
 
 }

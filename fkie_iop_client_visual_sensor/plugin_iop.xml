@@ -1,5 +1,5 @@
 <library path="fkie_iop_client_visual_sensor">
 	<class name="VisualSensorClient" type="urn_jaus_jss_environmentSensing_VisualSensorClient::VisualSensorClientService" base_class_type="JTS::Service"
-		id="urn:jaus:jss:environmentSensing:VisualSensorClient" version="1.0">
+		id="urn:jaus:jss:environmentSensing:VisualSensorClient" version="2.0">
 	</class>
 </library>
