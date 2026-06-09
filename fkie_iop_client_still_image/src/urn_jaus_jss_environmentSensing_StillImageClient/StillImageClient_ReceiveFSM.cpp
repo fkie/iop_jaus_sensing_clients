@@ -250,7 +250,13 @@ void StillImageClient_ReceiveFSM::handleReportStillImageSensorConfigurationActio
         if (p_publisher_map.find(id) == p_publisher_map.end()) {
             if (!sensor_name.empty()) {
                 auto node = std::static_pointer_cast<rclcpp::Node>(cmp);
+#if RCLCPP_VERSION_MAJOR >= 29
+                // Rolling
+                image_transport::ImageTransport it(*node);
+#else
+                // Jazzy, Kilted
                 image_transport::ImageTransport it(node);
+#endif
                 RCLCPP_DEBUG(logger, "create image transport publisher for %s", sensor_name.c_str());
                 // TODO(ros2) Implement when SubscriberStatusCallback is available
                 p_publisher_map[id] = it.advertiseCamera(sensor_name, 1);
