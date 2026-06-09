@@ -30,9 +30,9 @@ iop_code_generator(
 # OVERRIDES: files which override the generated files while build. The generated files are copied to the same location with .gen extension
 # EXTERN_SERVICES: the generated folder name of a service which is used from other library. This folder must be deleted while build.
   IDLS
-    urn.jaus.jss.core-v1.1/AccessControlClient.xml
-    urn.jaus.jss.core-v1.1/EventsClient.xml
-    urn.jaus.jss.core-v1.1/Transport.xml
+    urn.jaus.jss.core/AccessControlClient.xml
+    urn.jaus.jss.core/EventsClient.xml
+    urn.jaus.jss.core/Transport.xml
     urn.jaus.jss.environmentSensing/VisualSensorClient.xml
   OWN_IDLS
   OVERRIDES
