@@ -78,16 +78,14 @@ void StillImageClient_ReceiveFSM::setupNotifications()
 void StillImageClient_ReceiveFSM::setupIopConfiguration()
 {
     iop::Config cfg(cmp, "StillImageClient");
-    cfg.declare_param<bool>("use_id_for_topics", p_use_id_for_topics, true,
-        rcl_interfaces::msg::ParameterType::PARAMETER_BOOL,
-        "Allows to use ID if no name for sensor is available. In other case a warning will be printed!",
-        "Default: true");
-    cfg.declare_param<double>("hz", p_hz, true,
+    cfg.param<double>("hz", p_hz, p_hz, true,
         rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE,
         "Sets how often the reports are requested. If use_queries is True hz must be greather then 0. In this case each time a Query message is sent to get a report. If use_queries is False an event is created to get Reports. In this case 0 disables the rate and an event of type on_change will be created.",
         "Default: 10.0");
-    cfg.param("hz", p_hz, p_hz, false);
-    cfg.param("use_id_for_topics", p_use_id_for_topics, p_use_id_for_topics);
+    cfg.param<bool>("use_id_for_topics", p_use_id_for_topics, p_use_id_for_topics, true,
+        rcl_interfaces::msg::ParameterType::PARAMETER_BOOL,
+        "Allows to use ID if no name for sensor is available. In other case a warning will be printed!",
+        "Default: true");
     // initialize the control layer, which handles the access control staff
     this->set_rate(p_hz);
     this->set_supported_service(*this, "urn:jaus:jss:environmentSensing:StillImage", 1, 0);
