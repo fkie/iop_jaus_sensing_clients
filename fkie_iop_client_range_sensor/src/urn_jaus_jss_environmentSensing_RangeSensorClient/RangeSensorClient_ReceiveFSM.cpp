@@ -40,9 +40,7 @@ RangeSensorClient_ReceiveFSM::RangeSensorClient_ReceiveFSM(std::shared_ptr<iop::
      */
     context = new RangeSensorClient_ReceiveFSMContext(*this);
 
-    this->p_tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(
-        cmp->get_node_parameters_interface(),
-        cmp->get_node_topics_interface());
+    this->p_tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(cmp);
     this->pAccessControlClient_ReceiveFSM = pAccessControlClient_ReceiveFSM;
     this->pEventsClient_ReceiveFSM = pEventsClient_ReceiveFSM;
     this->pTransport_ReceiveFSM = pTransport_ReceiveFSM;
